@@ -1,0 +1,17 @@
+.DS_Store
+.idea
+
+# Node
+node_modules/
+
+# Editor scratch
+*.swp
+*.swo
+
+# OS noise
+.AppleDouble
+.LSOverride
+Icon?
+
+# Local logs
+*.log

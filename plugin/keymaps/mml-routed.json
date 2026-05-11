@@ -1,0 +1,11 @@
+{
+  "mml-productivity:route-to-a":        "mod+alt+a",
+  "mml-productivity:route-to-b":        "mod+alt+b",
+  "mml-productivity:route-to-c":        "mod+alt+c",
+  "mml-productivity:route-to-e":        "mod+alt+e",
+  "mml-productivity:route-to-f":        "mod+alt+f",
+  "mml-productivity:route-to-m":        "mod+alt+m",
+  "mml-productivity:route-to-p":        "mod+alt+p",
+  "mml-productivity:route-to-s":        "mod+alt+s",
+  "mml-productivity:accept-suggestion": "mod+alt+y"
+}

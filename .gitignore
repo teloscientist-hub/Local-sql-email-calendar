@@ -1,0 +1,96 @@
+# =============================================================================
+# Personal data — NEVER commit
+# =============================================================================
+# The whole point of the template is that personal data lives outside it.
+# Real warehouse, real contacts, real ratings, real exports all stay local.
+
+# SQLite warehouse and any backups/snapshots
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# Personal contact / rating data — fill these in from templates/
+contacts_to_rate.csv
+contacts_to_rate.csv.bak-*
+priority_friends.md
+me_addresses.txt
+me_addresses.csv
+RATED_CONTACTS_AUDIT.md
+RATED_CONTACTS_AUDIT.xlsx
+family_candidate_body_samples.md
+mailspring_rules.json
+LOCAL_README.md
+
+# Taxonomy generator output — review then save as the non-.draft version
+*.draft.md
+
+# Live cluster taxonomy doc — generated per-deployment via
+# `python -m tools.taxonomy_generator --propose`
+email_classification_instructions_universal.md
+
+# Google Calendar OAuth credentials and refreshed token — NEVER commit
+gcal_client_secrets.json
+gcal_token.json
+
+# Raw exports / archives — only your own
+*.pst
+*.mbox
+*.eml
+gmail*.zip
+google*.zip
+outlook*.rwz
+outlook*.json
+
+# Local launchd plist (instantiated from template with absolute paths)
+launchd/com.*.plist
+!launchd/*.template.plist
+
+# Per-user environment overrides
+.env
+.env.local
+.env.*.local
+
+# =============================================================================
+# Build / runtime artifacts
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Node / TypeScript
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+# Note: plugin/lib/ (tsc output) IS committed — the template ships a runnable
+# plugin so users don't need to install node deps before symlinking it into
+# Mailspring. Rebuild via `tsc` inside plugin/ if you edit the src.
+
+# =============================================================================
+# OS / editor
+# =============================================================================
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# =============================================================================
+# Logs
+# =============================================================================
+*.log
+logs/

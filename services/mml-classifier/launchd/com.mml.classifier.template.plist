@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template launchd plist for the mml-classifier sidecar daemon.
+
+  Usage:
+    1. Copy this file:
+       cp launchd/com.mml.classifier.template.plist launchd/com.mml.classifier.plist
+    2. Replace every <REPLACE_*> placeholder below with absolute paths
+       for your installation.
+    3. Symlink into ~/Library/LaunchAgents:
+       ln -s "$(pwd)/launchd/com.mml.classifier.plist" \
+             ~/Library/LaunchAgents/com.mml.classifier.plist
+    4. Load it:
+       launchctl load -w ~/Library/LaunchAgents/com.mml.classifier.plist
+
+  Verify:
+    launchctl list | grep com.mml.classifier
+    curl -sS http://127.0.0.1:8765/healthz | python3 -m json.tool
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.mml.classifier</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string><REPLACE_WITH_ABSOLUTE_PATH>/services/mml-classifier/.venv/bin/python</string>
+        <string>-m</string>
+        <string>mml_classifier.server</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string><REPLACE_WITH_ABSOLUTE_PATH>/services/mml-classifier</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <!--
+          Optional overrides (uncomment + set if your install is non-default):
+          <key>MML_CLASSIFIER_WAREHOUSE_DB</key>
+          <string>/absolute/path/to/warehouse.sqlite</string>
+          <key>MML_CLASSIFIER_CONTACTS_CSV</key>
+          <string>/absolute/path/to/contacts_to_rate.csv</string>
+          <key>MML_CLASSIFIER_CLAUDE_CLI</key>
+          <string>/absolute/path/to/claude</string>
+        -->
+    </dict>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string><REPLACE_WITH_HOME>/Library/Logs/mml-classifier/stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string><REPLACE_WITH_HOME>/Library/Logs/mml-classifier/stderr.log</string>
+</dict>
+</plist>

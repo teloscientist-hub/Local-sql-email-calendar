@@ -1,0 +1,24 @@
+# me_addresses — your sending email addresses
+#
+# Copy this file to me_addresses.txt and fill in EVERY email address you send
+# from. Comments and blank lines are ignored. Addresses are lowercased on
+# import. The same set goes into the warehouse's me_addresses table:
+#
+#   sqlite3 warehouse.sqlite < <(
+#     echo "BEGIN;";
+#     grep -v '^#' me_addresses.txt | grep -v '^$' | tr 'A-Z' 'a-z' |
+#       sed "s/.*/INSERT OR IGNORE INTO me_addresses (email, added_at) VALUES ('&', datetime('now'));/";
+#     echo "COMMIT;";
+#   )
+#
+# Examples (replace with your own):
+
+# Primary personal account
+you@example.com
+
+# Work / business addresses
+you@yourcompany.com
+you@anotherbiz.io
+
+# Aliases on shared domains (this one is YOURS, not your family's)
+you@familydomain.com

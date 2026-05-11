@@ -1,0 +1,10 @@
+{
+  "mml-engagement-spike:move-to-pending":  "mod+shift+1",
+  "mml-engagement-spike:move-to-waiting":  "mod+shift+2",
+  "mml-engagement-spike:move-to-complete": "mod+shift+3",
+  "mml-engagement-spike:move-to-later":    "mod+shift+4",
+  "mml-engagement-spike:move-to-pending-alt":  "mod+alt+1",
+  "mml-engagement-spike:move-to-waiting-alt":  "mod+alt+2",
+  "mml-engagement-spike:move-to-complete-alt": "mod+alt+3",
+  "mml-engagement-spike:move-to-later-alt":    "mod+alt+4"
+}

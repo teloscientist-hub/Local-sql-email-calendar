@@ -1,0 +1,24 @@
+{
+  "name": "mml-productivity",
+  "main": "./lib/main",
+  "version": "0.2.0",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "engines": {
+    "mailspring": ">=1.21.0"
+  },
+  "windowTypes": {
+    "default": true
+  },
+  "description": "MML Productivity — three-layer triage badge, TLDR overlay, manual tagging (Ctrl+Cmd+0..9) + notes (Ctrl+Cmd+N), disposition keystrokes (Cmd+Shift+1..4).",
+  "devDependencies": {
+    "@types/react": "^16.7.22",
+    "typescript": "^3.6.3"
+  },
+  "license": "MIT"
+}

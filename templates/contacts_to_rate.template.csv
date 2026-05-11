@@ -1,0 +1,4 @@
+rating,name,email,other_emails,sent_to_them,recv_from_them,first_year,last_year,years_active,score,notes
+9,Alex Example,alex@example.com,alex.example@gmail.com|alex@oldjob.com,847,612,2012,2026,15,8345,closest friend; never skip
+7,Sample Friend,sample.friend@example.com,,142,98,2018,2026,9,1690,active correspondent
+,Cold Pitcher,cold@somecompany.com,,0,3,2025,2026,2,8,

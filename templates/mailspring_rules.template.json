@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Example: route a publisher's newsletter to Routed/newsletters",
+    "conditionMode": "any",
+    "conditions": [
+      { "templateKey": "from", "comparatorKey": "contains", "value": "@example-publisher.com" }
+    ],
+    "actions": [
+      { "templateKey": "changeFolder", "value": "Routed/newsletters" }
+    ],
+    "disabled": false
+  },
+  {
+    "name": "Example: forward billing alerts to your filing address",
+    "conditionMode": "all",
+    "conditions": [
+      { "templateKey": "from", "comparatorKey": "contains", "value": "billing@" },
+      { "templateKey": "subject", "comparatorKey": "contains", "value": "card" }
+    ],
+    "actions": [
+      { "templateKey": "forward", "value": "filing@yourdomain.com" },
+      { "templateKey": "markAsImportant", "value": "" }
+    ],
+    "disabled": false
+  },
+  {
+    "name": "Example: a disabled rule (imports, won't fire until enabled)",
+    "conditionMode": "any",
+    "conditions": [
+      { "templateKey": "from", "comparatorKey": "contains", "value": "@example.com" }
+    ],
+    "actions": [
+      { "templateKey": "moveToTrash", "value": "" }
+    ],
+    "disabled": true
+  }
+]
