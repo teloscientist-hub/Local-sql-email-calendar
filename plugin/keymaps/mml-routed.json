@@ -1,11 +1,14 @@
 {
-  "mml-productivity:route-to-a":        "mod+alt+a",
-  "mml-productivity:route-to-b":        "mod+alt+b",
-  "mml-productivity:route-to-c":        "mod+alt+c",
-  "mml-productivity:route-to-e":        "mod+alt+e",
-  "mml-productivity:route-to-f":        "mod+alt+f",
-  "mml-productivity:route-to-m":        "mod+alt+m",
-  "mml-productivity:route-to-p":        "mod+alt+p",
-  "mml-productivity:route-to-s":        "mod+alt+s",
-  "mml-productivity:accept-suggestion": "mod+alt+y"
+  "mml-productivity:route-to-ai":            "mod+alt+a",
+  "mml-productivity:route-to-aol7":          "mod+alt+h",
+  "mml-productivity:route-to-coach-sales":   "mod+alt+c",
+  "mml-productivity:route-to-deals":         "mod+alt+b",
+  "mml-productivity:route-to-entertaining":  "mod+alt+e",
+  "mml-productivity:route-to-tech-noise":    "mod+alt+x",
+  "mml-productivity:route-to-finance":       "mod+alt+f",
+  "mml-productivity:route-to-models":        "mod+alt+m",
+  "mml-productivity:route-to-pol":           "mod+alt+p",
+  "mml-productivity:route-to-smm":           "mod+alt+s",
+  "mml-productivity:route-to-wellness":  "mod+alt+w",
+  "mml-productivity:accept-suggestion":      "mod+alt+y"
 }

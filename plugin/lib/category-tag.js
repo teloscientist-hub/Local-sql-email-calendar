@@ -16,10 +16,23 @@ const mailspring_exports_1 = require("mailspring-exports");
 // long-form (e.g. "Newsletters / lists"); we show the first two words
 // or a short manual abbreviation. Everything else falls back to the
 // first 4 chars of cluster_name for visual minimalism.
-// Populate after running the taxonomy generator and choosing cluster IDs.
-// Map cluster_id → short label (≤6 chars works best). Example:
-//   { 1: 'Friend', 3: 'Fam', 29: 'News', ... }
-const SHORT_LABELS = {};
+const SHORT_LABELS = {
+    1: 'Friend',
+    2: 'TMC',
+    3: 'Fam',
+    4: 'Life',
+    5: 'Coach',
+    6: 'Course',
+    7: 'Intro',
+    8: 'B2B',
+    10: 'Mstro',
+    13: 'ARI',
+    15: 'Jewel',
+    16: 'Intro',
+    17: 'Pod',
+    22: 'Vendor',
+    25: 'Estate',
+};
 function pickLabel(clusterId, clusterName) {
     if (clusterId in SHORT_LABELS)
         return SHORT_LABELS[clusterId];

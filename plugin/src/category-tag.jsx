@@ -13,14 +13,26 @@ import { React, PropTypes } from 'mailspring-exports';
 // applies, we render the band and skip the tag.
 
 // Short labels for the common clusters. Sidecar's cluster_name is
-// long-form (e.g. "Newsletters / lists"); we render the first 4 chars of
-// the name by default, or a short manual abbreviation if listed below.
-//
-// Populate after running the taxonomy generator (see
-// docs/CLASSIFICATION_TAXONOMY.md). Map cluster_id → short label (≤6
-// chars works best in the badge slot). Example:
-//   const SHORT_LABELS = { 1: 'Friend', 3: 'Fam', 29: 'News', ... };
-const SHORT_LABELS = {};
+// long-form (e.g. "Newsletters / lists"); we show the first two words
+// or a short manual abbreviation. Everything else falls back to the
+// first 4 chars of cluster_name for visual minimalism.
+const SHORT_LABELS = {
+  1:  'Friend',
+  2:  'TMC',
+  3:  'Fam',
+  4:  'Life',
+  5:  'Coach',
+  6:  'Course',
+  7:  'Intro',
+  8:  'B2B',
+  10: 'Mstro',
+  13: 'ARI',
+  15: 'Jewel',
+  16: 'Intro',
+  17: 'Pod',
+  22: 'Vendor',
+  25: 'Estate',
+};
 
 function pickLabel(clusterId, clusterName) {
   if (clusterId in SHORT_LABELS) return SHORT_LABELS[clusterId];

@@ -80,13 +80,19 @@ function _escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-// ISO 8601 → value for <input type="datetime-local"> (YYYY-MM-DDTHH:MM).
-// datetime-local has no timezone field; we keep the offset from the source
-// string and re-attach it on submit via _datetimeLocalToIso().
-function _isoToDatetimeLocal(iso) {
+// Split an ISO 8601 timestamp into the pieces our inputs expect:
+//   date  → "YYYY-MM-DD" for <input type="date">
+//   time  → "HH:MM"      for the time <select>
+//   tz    → "Z" or "+HH:MM" etc; re-attached on submit
+function _isoToDate(iso) {
   if (!iso) return '';
-  // Strip the tz offset and seconds — datetime-local expects "YYYY-MM-DDTHH:MM".
-  const m = String(iso).match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+  const m = String(iso).match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+}
+
+function _isoToTime(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/T(\d{2}:\d{2})/);
   return m ? m[1] : '';
 }
 
@@ -96,11 +102,42 @@ function _isoTzOffset(iso) {
   return m ? m[1] : '';
 }
 
-function _datetimeLocalToIso(localValue, tzOffset) {
-  if (!localValue) return '';
-  // Append :00 for seconds if missing, then the tz offset.
-  const withSeconds = /T\d{2}:\d{2}$/.test(localValue) ? `${localValue}:00` : localValue;
-  return tzOffset ? `${withSeconds}${tzOffset}` : withSeconds;
+function _combineDateTime(date, time, tzOffset) {
+  if (!date || !time) return '';
+  return tzOffset ? `${date}T${time}:00${tzOffset}` : `${date}T${time}:00`;
+}
+
+// "13:30" → "1:30 PM" for the dropdown label.
+function _formatTimeLabel(hhmm) {
+  const [h, m] = hhmm.split(':').map(n => parseInt(n, 10));
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+// 96 options, 00:00 → 23:45 at 15-minute intervals.
+function _buildTimeOptions() {
+  const options = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      options.push(`<option value="${value}">${_formatTimeLabel(value)}</option>`);
+    }
+  }
+  return options.join('');
+}
+
+// Round "HH:MM" to the nearest 15-minute slot the dropdown contains. The
+// sidecar may return 10:07 etc; the select can only display exact values.
+function _snapTime(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(n => parseInt(n, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return '';
+  const snapped = Math.round(m / 15) * 15;
+  if (snapped === 60) {
+    return `${String((h + 1) % 24).padStart(2, '0')}:00`;
+  }
+  return `${String(h).padStart(2, '0')}:${String(snapped).padStart(2, '0')}`;
 }
 
 function _renderInto(container, rfcMessageId) {
@@ -112,11 +149,17 @@ function _renderInto(container, rfcMessageId) {
         '<label style="display:block;font-size:11px;color:#666;margin-top:8px;">Title</label>' +
         '<input type="text" class="mml-event-overlay-title" disabled style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;"/>' +
         '<div style="display:flex;gap:8px;margin-top:8px;">' +
-          '<div style="flex:1;">' +
-            '<label style="display:block;font-size:11px;color:#666;">Start</label>' +
-            '<input type="datetime-local" class="mml-event-overlay-start" disabled style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;"/>' +
+          '<div style="flex:1.1;">' +
+            '<label style="display:block;font-size:11px;color:#666;">Date</label>' +
+            '<input type="date" class="mml-event-overlay-date" disabled style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;"/>' +
           '</div>' +
-          '<div style="width:110px;">' +
+          '<div style="flex:1;">' +
+            '<label style="display:block;font-size:11px;color:#666;">Time</label>' +
+            '<select class="mml-event-overlay-time" disabled style="width:100%;padding:6px 4px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;">' +
+              _buildTimeOptions() +
+            '</select>' +
+          '</div>' +
+          '<div style="width:90px;">' +
             '<label style="display:block;font-size:11px;color:#666;">Duration</label>' +
             '<select class="mml-event-overlay-duration" disabled style="width:100%;padding:6px 4px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;">' +
               '<option value="15">15 min</option>' +
@@ -128,7 +171,7 @@ function _renderInto(container, rfcMessageId) {
           '</div>' +
         '</div>' +
         '<label style="display:block;font-size:11px;color:#666;margin-top:10px;">Description</label>' +
-        '<textarea class="mml-event-overlay-description" rows="3" disabled style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;resize:vertical;font-family:inherit;"></textarea>' +
+        '<div class="mml-event-overlay-description" contenteditable="false" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:13px;font-family:inherit;min-height:64px;max-height:220px;overflow-y:auto;background:#fafafa;color:#222;line-height:1.45;outline:none;"></div>' +
         '<div class="mml-event-overlay-attendees-block" style="margin-top:10px;">' +
           '<label style="display:block;font-size:11px;color:#666;">Attendees (uncheck to skip)</label>' +
           '<div class="mml-event-overlay-attendees" style="border:1px solid #eee;border-radius:4px;padding:4px 8px;max-height:120px;overflow:auto;font-size:12px;color:#888;">no attendees suggested</div>' +
@@ -144,7 +187,8 @@ function _renderInto(container, rfcMessageId) {
 
   const backdrop   = container.querySelector('.mml-event-overlay-backdrop');
   const titleEl    = container.querySelector('.mml-event-overlay-title');
-  const startEl    = container.querySelector('.mml-event-overlay-start');
+  const dateEl     = container.querySelector('.mml-event-overlay-date');
+  const timeEl     = container.querySelector('.mml-event-overlay-time');
   const durationEl = container.querySelector('.mml-event-overlay-duration');
   const descEl     = container.querySelector('.mml-event-overlay-description');
   const submitEl   = container.querySelector('.mml-event-overlay-submit');
@@ -159,9 +203,10 @@ function _renderInto(container, rfcMessageId) {
 
   function _enableForm(enabled) {
     titleEl.disabled = !enabled;
-    startEl.disabled = !enabled;
+    dateEl.disabled = !enabled;
+    timeEl.disabled = !enabled;
     durationEl.disabled = !enabled;
-    descEl.disabled = !enabled;
+    descEl.setAttribute('contenteditable', enabled ? 'true' : 'false');
     submitEl.disabled = !enabled;
   }
 
@@ -196,7 +241,11 @@ function _renderInto(container, rfcMessageId) {
     if (draft) {
       if (draft.title)              titleEl.value = String(draft.title);
       if (draft.proposed_start_iso) {
-        startEl.value = _isoToDatetimeLocal(draft.proposed_start_iso);
+        dateEl.value = _isoToDate(draft.proposed_start_iso);
+        const snapped = _snapTime(_isoToTime(draft.proposed_start_iso));
+        if (snapped && Array.from(timeEl.options).some(o => o.value === snapped)) {
+          timeEl.value = snapped;
+        }
         state.tzOffset = _isoTzOffset(draft.proposed_start_iso);
       }
       if (typeof draft.duration_minutes === 'number') {
@@ -205,7 +254,7 @@ function _renderInto(container, rfcMessageId) {
           durationEl.value = opt;
         }
       }
-      if (draft.description)        descEl.value = String(draft.description);
+      if (draft.description)        descEl.innerHTML = String(draft.description);
       if (Array.isArray(draft.attendees) && draft.attendees.length > 0) {
         state.attendees = draft.attendees.map(a => ({
           email: String(a.email || '').trim().toLowerCase(),
@@ -260,14 +309,20 @@ function _renderInto(container, rfcMessageId) {
       titleEl.focus();
       return;
     }
-    const startLocal = startEl.value;
-    if (!startLocal) {
-      _showError('start time is required');
-      startEl.focus();
+    const dateVal = dateEl.value;
+    const timeVal = timeEl.value;
+    if (!dateVal) {
+      _showError('date is required');
+      dateEl.focus();
+      return;
+    }
+    if (!timeVal) {
+      _showError('time is required');
+      timeEl.focus();
       return;
     }
     const duration = parseInt(durationEl.value, 10);
-    const startIso = _datetimeLocalToIso(startLocal, state.tzOffset);
+    const startIso = _combineDateTime(dateVal, timeVal, state.tzOffset);
     const attendees = state.attendees
       .filter(a => a.checked)
       .map(a => a.name ? { email: a.email, name: a.name } : { email: a.email });
@@ -281,7 +336,7 @@ function _renderInto(container, rfcMessageId) {
       result = await sidecarClient.createEvent({
         rfc_message_id: rfcMessageId,
         title,
-        description: (descEl.value || '').trim(),
+        description: (descEl.innerHTML || '').trim(),
         start_iso: startIso,
         duration_minutes: duration,
         attendees,
@@ -340,7 +395,7 @@ function _renderInto(container, rfcMessageId) {
     _doSubmit();
   });
 
-  [titleEl, startEl, durationEl, descEl].forEach(el => {
+  [titleEl, dateEl, timeEl, durationEl, descEl].forEach(el => {
     el.addEventListener('input', _clearError);
     el.addEventListener('change', _clearError);
   });

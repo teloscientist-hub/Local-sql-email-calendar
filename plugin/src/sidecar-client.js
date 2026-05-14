@@ -177,8 +177,13 @@ function _resetSidecarWarning() {
 /**
  * Fetch ThreadState for an array of RFC-822 IDs. Returns null on
  * sidecar-down / timeout (badge silent-fails). Otherwise an object:
- *   { rating, cluster_id, cluster_name, importance_score,
- *     tldr_text, reason, scored_at, matched_message_count }
+ *   { rating, rating_source, cluster_id, cluster_name, importance_score,
+ *     tldr_text, reason, scored_at, matched_message_count, to_me_addr,
+ *     suggested_rating, suggestion_confidence, suggestion_reason,
+ *     suggestion_scored_at }
+ *
+ * Phase 6.0.f added the suggested_* fields: latest LLM rating suggestion
+ * across the thread (by scored_at), filtered to current classifier_version.
  */
 async function getThreadByRfcIds(rfcIds) {
   if (!Array.isArray(rfcIds) || rfcIds.length === 0) return null;
@@ -210,6 +215,15 @@ async function getThreadForMailspringThread(thread) {
   return getThreadByRfcIds(ids);
 }
 
+// Subscribers notified after bustThreadCache so badges can re-fetch.
+const _threadCacheListeners = new Set();
+
+/** Subscribe to thread-cache busts. Returns an unsubscribe function. */
+function onThreadCacheRefresh(cb) {
+  _threadCacheListeners.add(cb);
+  return () => _threadCacheListeners.delete(cb);
+}
+
 /** Drop cached state for any cache key that overlaps the given RFC IDs. */
 function bustThreadCache(rfcIds) {
   const set = new Set((rfcIds || []).filter(Boolean));
@@ -221,6 +235,33 @@ function bustThreadCache(rfcIds) {
       }
     }
   }
+  for (const cb of _threadCacheListeners) cb();
+}
+
+// Periodic sweep — evict expired cache entries and notify badges so they
+// re-fetch /thread for the rows still visible. Without this, a row that
+// renders before the rating worker finishes caches "no rating yet" and
+// never re-asks, even after the cache TTL passes, because Mailspring's
+// virtualization doesn't re-mount on-screen rows.
+const CACHE_SWEEP_INTERVAL_MS = 30 * 1000;
+let _cacheSweepTimer = null;
+
+function _sweepThreadCache() {
+  const now = Date.now();
+  let removed = 0;
+  for (const [key, entry] of _threadStateCache) {
+    if (entry.expiresAt <= now) {
+      _threadStateCache.delete(key);
+      removed++;
+    }
+  }
+  if (removed > 0) {
+    for (const cb of _threadCacheListeners) cb();
+  }
+}
+
+if (!_cacheSweepTimer && typeof setInterval === 'function') {
+  _cacheSweepTimer = setInterval(_sweepThreadCache, CACHE_SWEEP_INTERVAL_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +445,35 @@ async function intakeNow() {
 }
 
 // ---------------------------------------------------------------------------
+// /threads-enrich — bulk enrichment for the sort-view overlay.
+
+/**
+ * POST /threads-enrich. Returns { threads: [EnrichedThread, ...] } parallel
+ * to input order, or null on transport failure. 5s timeout — typical
+ * inbox view ≤ 200 ids and the SQL is one big SELECT.
+ */
+async function threadsEnrich(rfcMessageIds) {
+  if (!Array.isArray(rfcMessageIds) || rfcMessageIds.length === 0) {
+    return { threads: [] };
+  }
+  return _fetch('POST', '/threads-enrich',
+    { rfc_message_ids: rfcMessageIds },
+    { timeout: 5000 },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// /message-lookup — RFC IDs → warehouse ids + metadata, for the debug HUD.
+
+async function messageLookup(rfcMessageIds) {
+  if (!Array.isArray(rfcMessageIds) || rfcMessageIds.length === 0) {
+    return { messages: [] };
+  }
+  const qs = rfcMessageIds.map(s => encodeURIComponent(s)).join(',');
+  return _fetch('GET', `/message-lookup?ids=${qs}`, undefined, { timeout: 3000 });
+}
+
+// ---------------------------------------------------------------------------
 // /healthz
 
 async function healthz() {
@@ -417,6 +487,7 @@ module.exports = {
   rfcIdsForThread,
   getThreadByRfcIds,
   getThreadForMailspringThread,
+  onThreadCacheRefresh,
   bustThreadCache,
   rateMessage,
   addNote,
@@ -428,6 +499,8 @@ module.exports = {
   getCachedRouteSuggestionForThread,
   bustRouteSuggestionCache,
   intakeNow,
+  threadsEnrich,
+  messageLookup,
   healthz,
   _resetSidecarWarning, // exposed for tests / dev tools
 };

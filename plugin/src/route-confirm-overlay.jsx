@@ -11,8 +11,8 @@
 //        - key hints: Y/Enter = confirm · letter = override · Esc = cancel
 //   4. User's next key:
 //        - Y or Enter: move to suggested folder, log 'accept'
-//        - A/C/D/E/F/M/P/S: move to that letter's folder, log 'override' if
-//          mismatch or 'accept' if match
+//        - A/B/C/E/F/H/M/P/S/W/X: move to that letter's folder, log 'override'
+//          if mismatch or 'accept' if match
 //        - Esc: dismiss, do nothing
 //
 // Implementation note: vanilla DOM (no React import), same as note-input-overlay
@@ -26,19 +26,18 @@ const { moveSelectedTo } = require('./disposition-actions');
 
 const PLUGIN_VERSION = 'mml-productivity@0.2.0';
 
-// Letter → folder map for the route-confirm overlay. Keep in sync with
-// keymaps/mml-routed.json, routed-keystroke-handler.js ROUTES, and the
-// sidecar's config.py ROUTING_FOLDERS. Note: `d` is skipped because
-// mod+alt+d collides with macOS Show/Hide Dock.
 const LETTER_TO_FOLDER = {
-  a: 'Routed/A',
-  b: 'Routed/B',
-  c: 'Routed/C',
-  e: 'Routed/E',
-  f: 'Routed/F',
-  m: 'Routed/M',
-  p: 'Routed/P',
-  s: 'Routed/S',
+  a: 'Routed/AI',
+  b: 'Routed/deals',          // mod+alt+d collided with macOS Dock-toggle; "B"=Buy/Bargain.
+  c: 'Routed/coach sales',
+  e: 'Routed/entertaining',
+  f: 'Routed/Finance',
+  h: 'Routed/aol7',           // A reassigned to AI; aol7 moved to H.
+  m: 'Routed/models',
+  p: 'Routed/pol',
+  s: 'Routed/smm',
+  w: 'Routed/Wellness',
+  x: 'Routed/Tech Noise',     // E reassigned to entertaining; extra (now Tech Noise) on X.
 };
 
 let _container = null;
@@ -132,16 +131,16 @@ function _renderSuggestion(subject) {
         'The background classifier hasn\'t reached this message. ' +
         'Press <b>N</b> to classify now (waits ~10–30s) or a letter to route manually.' +
       '</div>';
-    hintHTML = '<b>N</b> = classify now · <b>A B C E F M P S</b> = manual route · <b>Esc</b> = cancel';
+    hintHTML = '<b>N</b> = classify now · <b>A B C E F H M P S W X</b> = manual route · <b>Esc</b> = cancel';
   } else if (errorMsg) {
     bodyHTML =
       '<div style="font-size:13px;color:#c83838;">Error: ' + _escape(errorMsg) + '</div>';
-    hintHTML = '<b>A B C E F M P S</b> = manual route · <b>Esc</b> = cancel';
+    hintHTML = '<b>A B C E F H M P S W X</b> = manual route · <b>Esc</b> = cancel';
   } else if (!sf || sf === 'none') {
     bodyHTML =
       '<div style="font-size:14px;color:#666;font-style:italic;">No folder fits (LLM declined).</div>' +
       '<div style="margin-top:6px;font-size:12px;color:#888;line-height:1.4;">' + _escape(reason) + '</div>';
-    hintHTML = '<b>A B C E F M P S</b> = manual route · <b>Esc</b> = cancel';
+    hintHTML = '<b>A B C E F H M P S W X</b> = manual route · <b>Esc</b> = cancel';
   } else {
     const shortFolder = sf.replace(/^Routed\//, '');
     bodyHTML =
@@ -152,7 +151,7 @@ function _renderSuggestion(subject) {
         '</span>' +
       '</div>' +
       '<div style="margin-top:8px;font-size:12px;color:#666;line-height:1.4;">' + _escape(reason) + '</div>';
-    hintHTML = '<b>Y</b>/Enter = confirm · <b>A B C E F M P S</b> = override · <b>Esc</b> = cancel';
+    hintHTML = '<b>Y</b>/Enter = confirm · <b>A B C E F H M P S W X</b> = override · <b>Esc</b> = cancel';
   }
 
   _renderShell(subject, bodyHTML, hintHTML);

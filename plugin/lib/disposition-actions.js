@@ -18,7 +18,7 @@
 //     the destination label. The thread fully leaves Inbox.
 //
 // Folder discovery: CategoryStore.categories(account) is matched by
-// `displayName` against `folderName`. The owner pre-creates the four
+// `displayName` against `folderName`. the owner pre-creates the four
 // disposition folders/labels in each provider's web UI; the plugin only
 // looks them up by name.
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -65,7 +65,7 @@ function _findNextNewerThread(threadsBeingMoved) {
 // Note: 'Complete' (not 'Done') because Gmail reserves the label name
 // 'Done' for system use and refuses to let users create it. We use the
 // same vocabulary across both providers for consistency.
-exports.DISPOSITIONS = ['Pending', 'Waiting', 'Complete', 'Later'];
+exports.DISPOSITIONS = ['Pending', 'Waiting', 'Complete', 'Fun'];
 function findCategoryByName(account, name) {
     const cats = mailspring_exports_1.CategoryStore.categories(account) || [];
     return cats.find(c => c && c.displayName === name) || null;

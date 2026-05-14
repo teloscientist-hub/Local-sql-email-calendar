@@ -13,13 +13,13 @@ const BUTTON_LABELS = {
     Pending: '⏳ Pending',
     Waiting: '⏸ Waiting',
     Complete: '✓ Complete',
-    Later: '★ Later',
+    Fun: '★ Fun',
 };
 const BUTTON_KEYHINT = {
     Pending: '⌘⇧1',
     Waiting: '⌘⇧2',
     Complete: '⌘⇧3',
-    Later: '⌘⇧4',
+    Fun: '⌘⇧4',
 };
 class DispositionToolbar extends mailspring_exports_1.React.Component {
     constructor() {

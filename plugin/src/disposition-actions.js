@@ -17,7 +17,7 @@
 //     the destination label. The thread fully leaves Inbox.
 //
 // Folder discovery: CategoryStore.categories(account) is matched by
-// `displayName` against `folderName`. The owner pre-creates the four
+// `displayName` against `folderName`. the owner pre-creates the four
 // disposition folders/labels in each provider's web UI; the plugin only
 // looks them up by name.
 
@@ -71,12 +71,7 @@ function _findNextNewerThread(threadsBeingMoved) {
 // Note: 'Complete' (not 'Done') because Gmail reserves the label name
 // 'Done' for system use and refuses to let users create it. We use the
 // same vocabulary across both providers for consistency.
-//
-// These are the GTD-flavored top-level disposition folders. Rename
-// freely — the keymap (mml-engagement-spike.json), main.js
-// COMMAND_TO_FOLDER, and sidebar-extension.js PROCESSING_CHILDREN must
-// stay in sync.
-export const DISPOSITIONS = ['Pending', 'Waiting', 'Complete', 'Later'];
+export const DISPOSITIONS = ['Pending', 'Waiting', 'Complete', 'Fun'];
 
 function findCategoryByName(account, name) {
   const cats = CategoryStore.categories(account) || [];

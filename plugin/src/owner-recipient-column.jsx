@@ -5,15 +5,12 @@ const sidecarClient = require('./sidecar-client');
 // owner-recipient-column.jsx
 //
 // Renders inside a real (monkey-patched) ListTabular column showing which of
-// the owner's email addresses received this thread. One component instance
-// per thread row; each does its own /thread fetch, but sidecar-client.js
-// caches at the RFC-ID-set level so re-fetches for already-seen threads are
-// free.
+// the owner's email addresses received this thread. One component instance per
+// thread row; each does its own /thread fetch, but sidecar-client.js caches
+// at the RFC-ID-set level so re-fetches for already-seen threads are free.
 //
-// Display rule: full email address. The string comes from the sidecar's
-// `to_me_addr` field, which is looked up against the `me_addresses` SQL
-// table (one row per email address the owner uses to receive mail).
-// Column width is set to fit typical addresses; overflow ellipses.
+// Display rule: full email address (e.g., 'mark@gameofthriving.com').
+// Column width is set to fit typical the owner-addresses; overflow ellipses.
 
 export default class OwnerRecipientColumn extends React.Component {
   static displayName = 'OwnerRecipientColumn';
@@ -21,7 +18,7 @@ export default class OwnerRecipientColumn extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = { ownerAddr: null };
+    this.state = { markAddr: null };
     this._mounted = false;
     this._lastThreadId = null;
   }
@@ -47,17 +44,17 @@ export default class OwnerRecipientColumn extends React.Component {
       .then(state => {
         if (!this._mounted) return;
         if (this._lastThreadId !== thread.id) return;
-        this.setState({ ownerAddr: state ? state.to_me_addr || null : null });
+        this.setState({ markAddr: state ? state.to_me_addr || null : null });
       })
       .catch(() => {
         if (!this._mounted) return;
-        this.setState({ ownerAddr: null });
+        this.setState({ markAddr: null });
       });
   }
 
   render() {
-    const { ownerAddr } = this.state;
-    if (!ownerAddr) {
+    const { markAddr } = this.state;
+    if (!markAddr) {
       return (
         <span className="mml-owner-recipient-col mml-owner-recipient-empty" title="No owner-recipient data">
           ·
@@ -67,9 +64,9 @@ export default class OwnerRecipientColumn extends React.Component {
     return (
       <span
         className="mml-owner-recipient-col"
-        title={ownerAddr}
+        title={markAddr}
       >
-        {ownerAddr}
+        {markAddr}
       </span>
     );
   }

@@ -1,7 +1,5 @@
 import {
   ComponentRegistry,
-  WorkspaceStore,
-  MailboxPerspective,
   React,
 } from 'mailspring-exports';
 
@@ -9,13 +7,16 @@ import EngagementBadge from './engagement-badge';
 import DispositionToolbar from './disposition-toolbar';
 import TldrOverlay from './tldr-overlay';
 import OwnerRecipientColumn from './owner-recipient-column';
-import { engagementForThread } from './engagement-stub';
 import { moveSelectedTo, DISPOSITIONS } from './disposition-actions';
 import { registerTagCommands, unregisterTagCommands } from './tag-keystroke-handler';
 import { registerNoteCommand, unregisterNoteCommand } from './note-keystroke-handler';
 import { registerEventCommand, unregisterEventCommand } from './event-keystroke-handler';
 import { registerRoutedCommands, unregisterRoutedCommands } from './routed-keystroke-handler';
+import { registerSortViewCommand, unregisterSortViewCommand } from './sort-view-handler';
+import { registerSortCycleCommand, unregisterSortCycleCommand } from './sort-cycle-handler';
 import { registerAcceptCommand, unregisterAcceptCommand } from './accept-suggestion-handler';
+import { registerIdHud, unregisterIdHud } from './id-hud-handler';
+const sortPatch = require('./sort-patch');
 import {
   activate as activateAutoIntake,
   deactivate as deactivateAutoIntake,
@@ -64,6 +65,37 @@ const STYLE_CSS = `
     color: #333;
   }
 
+  /* ----- Layer 1.5: LLM rating-suggestion chip (Phase 6.0.f) -----
+     Same 1-9 color palette as PersonBand, but hex-shaped so it reads
+     as "system guess" instead of "your decision." Slots between
+     PersonBand and CategoryTag in the badge dispatch. Size matched to
+     PersonBand visual weight so row heights don't shift. */
+  .mml-rating-chip {
+    display: inline-block;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    color: #fff;
+    vertical-align: middle;
+    white-space: nowrap;
+    clip-path: polygon(15% 0%, 85% 0%, 100% 50%, 85% 100%, 15% 100%, 0% 50%);
+    -webkit-clip-path: polygon(15% 0%, 85% 0%, 100% 50%, 85% 100%, 15% 100%, 0% 50%);
+    cursor: default;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .mml-rating-chip.mml-rating-1,
+  .mml-rating-chip.mml-rating-2,
+  .mml-rating-chip.mml-rating-3,
+  .mml-rating-chip.mml-rating-4 {
+    color: #333;
+  }
+
   /* ----- Layer 2: Category tag (gray, subtle) ----- */
   .mml-category-tag {
     display: inline-block;
@@ -94,7 +126,7 @@ const STYLE_CSS = `
     opacity: 0.8;
   }
 
-  /* ----- Owner-recipient column (its own real ListTabular column) ----- */
+  /* ----- the owner-recipient column (its own real ListTabular column) ----- */
   .mml-owner-recipient-col {
     display: inline-block;
     font-size: 12px;
@@ -248,111 +280,11 @@ function removeStyleTag() {
 }
 
 // =====================================================================
-// Increment B — sort monkey-patch (paths 1, 2). See spike plan §B.
-// Path 1 (public API) — log what's available at activate(). Path 2
-// (monkey-patch) — wrap MailboxPerspective.prototype.threads to
-// post-sort the resolved ModelQuery results by engagementForThread desc.
-// By patching the PROTOTYPE we cover every MailboxPerspective subclass.
+// Phase 1 sticky native sort — see src/sort-patch.js. Replaces the prior
+// Increment B post-sort patch (which only re-ordered the loaded range,
+// not the underlying result set, and was a structural no-op once badges
+// already provided the visual reordering signal).
 // =====================================================================
-
-const __originalThreads = MailboxPerspective.prototype.threads;
-
-function logSortApiSurface() {
-  const surface = {
-    hasMailboxPerspectiveThreads: typeof __originalThreads === 'function',
-    workspaceStoreLayoutMode: WorkspaceStore && WorkspaceStore.layoutMode && WorkspaceStore.layoutMode(),
-    perspectiveSubclasses: Object.keys(MailboxPerspective || {}).filter(k => /[Pp]erspective$/.test(k)),
-  };
-  // eslint-disable-next-line no-console
-  console.info('[mml-engagement-spike] sort API surface:', surface);
-}
-
-function postSortByEngagement(threads) {
-  if (!Array.isArray(threads) || threads.length === 0) return threads;
-  return threads
-    .map((t, i) => ({ t, i, e: engagementForThread(t) }))
-    .sort((a, b) => (b.e - a.e) || (a.i - b.i))
-    .map(x => x.t);
-}
-
-let __patchInvocationCount = 0;
-function patchedThreads(...args) {
-  const query = __originalThreads.apply(this, args);
-  if (!query) return query;
-
-  __patchInvocationCount += 1;
-  if (__patchInvocationCount <= 3) {
-    // eslint-disable-next-line no-console
-    console.info('[mml-engagement-spike] patchedThreads invoked', {
-      perspectiveCtor: this && this.constructor && this.constructor.name,
-      hasThen: typeof query.then === 'function',
-      hasSubscribe: typeof query.subscribe === 'function',
-      hasObserve: typeof query.observe === 'function',
-      queryKeys: Object.keys(query || {}).slice(0, 25),
-    });
-  }
-
-  // Wrap .then() — for any consumer that awaits the query as a Promise.
-  if (typeof query.then === 'function') {
-    const originalThen = query.then.bind(query);
-    query.then = (onResolve, onReject) => {
-      return originalThen(
-        (results) => {
-          try {
-            const sorted = postSortByEngagement(results);
-            return onResolve ? onResolve(sorted) : sorted;
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error('[mml-engagement-spike] post-sort (then) error:', err);
-            return onResolve ? onResolve(results) : results;
-          }
-        },
-        onReject,
-      );
-    };
-  }
-
-  // Wrap .subscribe() — Mailspring's thread list uses observable subscribe,
-  // not .then(). subscribe(callback) | subscribe({next, error, complete}).
-  if (typeof query.subscribe === 'function') {
-    const originalSubscribe = query.subscribe.bind(query);
-    query.subscribe = (cbOrObserver) => {
-      const wrap = (results) => {
-        try { return postSortByEngagement(results); } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[mml-engagement-spike] post-sort (subscribe) error:', err);
-          return results;
-        }
-      };
-      if (typeof cbOrObserver === 'function') {
-        return originalSubscribe((results) => cbOrObserver(wrap(results)));
-      }
-      if (cbOrObserver && typeof cbOrObserver.next === 'function') {
-        const wrapped = Object.assign({}, cbOrObserver, {
-          next: (results) => cbOrObserver.next(wrap(results)),
-        });
-        return originalSubscribe(wrapped);
-      }
-      return originalSubscribe(cbOrObserver);
-    };
-  }
-
-  // Wrap .observe() — alternate name some Mailspring versions use.
-  if (typeof query.observe === 'function') {
-    const originalObserve = query.observe.bind(query);
-    query.observe = (cb) => {
-      return originalObserve((results) => {
-        try { cb(postSortByEngagement(results)); } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[mml-engagement-spike] post-sort (observe) error:', err);
-          cb(results);
-        }
-      });
-    };
-  }
-
-  return query;
-}
 
 // =====================================================================
 // Increment D — keystroke bindings.
@@ -371,8 +303,8 @@ const COMMAND_TO_FOLDER = {
   'mml-engagement-spike:move-to-waiting-alt':  'Waiting',
   'mml-engagement-spike:move-to-complete':     'Complete',
   'mml-engagement-spike:move-to-complete-alt': 'Complete',
-  'mml-engagement-spike:move-to-later':        'Later',
-  'mml-engagement-spike:move-to-later-alt':    'Later',
+  'mml-engagement-spike:move-to-fun':          'Fun',
+  'mml-engagement-spike:move-to-fun-alt':      'Fun',
 };
 
 let __commandDisposables = [];
@@ -402,7 +334,7 @@ function registerKeymapsViaAppEnv() {
   // eslint-disable-next-line no-console
   console.info(
     `[mml-engagement-spike] registered ${__commandDisposables.length} commands. ` +
-    'Try Cmd+Shift+1..4 (Pending/Waiting/Complete/Later) or Cmd+Opt+1..4.'
+    'Try Cmd+Shift+1..4 (Pending/Waiting/Complete/Fun) or Cmd+Opt+1..4.'
   );
   return true;
 }
@@ -412,11 +344,11 @@ function registerKeymapsFallback() {
     'Digit1': 'Pending',
     'Digit2': 'Waiting',
     'Digit3': 'Complete',
-    'Digit4': 'Later',
+    'Digit4': 'Fun',
   };
   // Diagnostic without-DevTools: every keydown updates document.title with
-  // a short summary of modifiers + e.code. The owner can read their own
-  // keystrokes off Mailspring's window title bar to verify the handler fires.
+  // a short summary of modifiers + e.code. the owner can read his own keystrokes
+  // off Mailspring's window title bar to verify the handler fires.
   const __originalTitle = document.title;
   let __titleResetTimer = null;
 
@@ -510,9 +442,12 @@ export function activate() {
     }
   }
 
-  // Increment B
-  logSortApiSurface();
-  MailboxPerspective.prototype.threads = patchedThreads;
+  // Phase 1 sticky native sort — install the Thread.naturalSortOrder
+  // override before anything else triggers a thread query. Fresh
+  // subscriptions (perspective changes, range scrolls, persist refetches)
+  // will pick up the patched sort automatically.
+  sortPatch.activate();
+  registerSortCycleCommand();
 
   // Increment D
   let usedAppEnv = false;
@@ -566,6 +501,14 @@ export function activate() {
   // debounce 5s, call /intake-now so warehouse stays current with Mailspring
   // without manual `python -m mml_classifier.mailspring_intake --commit`.
   activateAutoIntake();
+
+  // Phase 7.0 — Cmd+Option+V: sortable list view of threads in current
+  // perspective. Pulls threads from ThreadListStore.dataSource(), enriches
+  // via the sidecar's /threads-enrich, renders a click-to-sort overlay.
+  registerSortViewCommand();
+
+  // Right-click on a thread row → debug HUD listing RFC IDs + warehouse ids.
+  registerIdHud();
 }
 
 function findInstancesByDisplayName(domSel) {
@@ -678,9 +621,9 @@ function injectColumnsWithRetries(newWide) {
   setTimeout(tryOnce, 50);
 }
 
-let __ownerRecipientColumnInstalled = false;
+let __markRecipientColumnInstalled = false;
 function installOwnerRecipientColumn() {
-  if (__ownerRecipientColumnInstalled) return;
+  if (__markRecipientColumnInstalled) return;
   try {
     // Find the already-loaded thread-list-columns module via require.cache.
     let tlc = null;
@@ -700,7 +643,7 @@ function installOwnerRecipientColumn() {
 
     // Refuse double-install on hot-reload
     if (tlc.Wide.some(c => c && c.name === 'OwnerAddr')) {
-      __ownerRecipientColumnInstalled = true;
+      __markRecipientColumnInstalled = true;
       return;
     }
 
@@ -727,7 +670,7 @@ function installOwnerRecipientColumn() {
     const newWide = [...tlc.Wide];
     newWide.splice(insertAt, 0, col);
     tlc.Wide = newWide;
-    __ownerRecipientColumnInstalled = true;
+    __markRecipientColumnInstalled = true;
     // eslint-disable-next-line no-console
     console.info(
       `[mml-productivity] inserted OwnerAddr column at index ${insertAt} ` +
@@ -773,13 +716,16 @@ export function deactivate() {
     try { ComponentRegistry.unregister(TldrOverlay); } catch (e) {}
   }
   removeStyleTag();
-  MailboxPerspective.prototype.threads = __originalThreads;
+  sortPatch.deactivate();
+  unregisterSortCycleCommand();
   unregisterKeymaps();
   unregisterTagCommands();
   unregisterNoteCommand();
   unregisterEventCommand();
   unregisterRoutedCommands();
+  unregisterSortViewCommand();
   unregisterAcceptCommand();
   deactivateAutoIntake();
   deactivateRoutedSidebar();
+  unregisterIdHud();
 }

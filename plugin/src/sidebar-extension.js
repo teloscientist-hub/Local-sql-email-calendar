@@ -2,37 +2,28 @@ import { CategoryStore, MailboxPerspective } from 'mailspring-exports';
 import * as path from 'path';
 
 // Phase 5.5 + 5.5.6 — TWO unified parents injected into the All-Accounts
-// sidebar section, each aggregating same-named categories across the
-// connected accounts. Mailspring's `ExtensionRegistry.AccountSidebar` hook
-// forces children-by-account (sidebar-section.ts:147-156). We need
-// children-by-name, so we monkey-patch the internal
-// `SidebarSection.standardSectionForAccounts`.
+// sidebar section, each aggregating same-named categories across both
+// accounts. Mailspring's `ExtensionRegistry.AccountSidebar` hook forces
+// children-by-account (sidebar-section.ts:147-156). We need children-by-
+// name, so we monkey-patch the internal `SidebarSection.standardSectionForAccounts`.
 //
-//   Processing — top-level disposition folders (see PROCESSING_CHILDREN below).
+//   Processing — top-level disposition folders Pending/Waiting/Complete/Fun.
 //                Inserted at index 1 (above Unread).
-//   Routed     — Routed/<name> categories. Folder discovery is prefix-based
-//                at runtime; the folder names themselves are defined in
-//                routed-keystroke-handler.js. Inserted at index 3.
-//
-// =====================================================================
-// IMPORTANT — disposition names below are the working-system EXAMPLE.
-// =====================================================================
-// PROCESSING_CHILDREN lists the four top-level disposition folders the
-// 4-step workflow uses (Pending → Waiting → Complete → Later). Replace with
-// your own disposition names and update keymaps/mml-tags.json +
-// disposition-actions.js DISPOSITIONS to match.
+//   Routed     — Routed/<8 names> categories.
+//                Inserted at index 1; after Processing splices in, lands at
+//                index 2 (above Unread, below Processing).
 
 const ROUTED_PARENT      = 'Routed';
 const ROUTED_PREFIX      = 'Routed/';
 const ROUTED_ID          = 'mml-routed-unified';
-const ROUTED_INSERT_AT   = 3;
+const ROUTED_INSERT_AT   = 1;
 
 const PROCESSING_PARENT     = 'Processing';
 const PROCESSING_ID         = 'mml-processing-unified';
 const PROCESSING_INSERT_AT  = 1;
-// Preserve workflow order: pending → waiting → complete, then later as
-// the side bucket. NOT alphabetical.
-const PROCESSING_CHILDREN   = ['Pending', 'Waiting', 'Complete', 'Later'];
+// Preserve the workflow order the owner thinks in: pending → waiting → complete,
+// then fun as the side bucket. NOT alphabetical.
+const PROCESSING_CHILDREN   = ['Pending', 'Waiting', 'Complete', 'Fun'];
 
 let SidebarStore = null;
 let SidebarItem = null;
@@ -134,7 +125,7 @@ function injectInto(section, accounts) {
     section.items.splice(at, 0, routed);
   }
 
-  // Processing inserted at index 1 — pushes Unread/Starred/Routed down by
+  // Processing inserted at index 1 — pushes Routed/Unread/Starred down by
   // one, lands right below Inbox.
   const processing = buildUnifiedProcessingItem(accounts || []);
   if (processing) {

@@ -1,21 +1,10 @@
 // routed-keystroke-handler.js
 //
 // Phase 5.5.1 — Cmd+Option+<letter> → move selected thread(s) into one of
-// the `Routed/<name>` folders. Same move recipe as the existing
-// disposition handler (Cmd+Shift+1..4): ChangeFolderTask for IMAP,
-// ChangeLabelsTask for Gmail. Folder lookup by displayName, pre-created
-// in Phase 5.
-//
-// =====================================================================
-// Folder names below are GENERIC PLACEHOLDERS. Rename `Routed/A`..`H` to
-// your own folder names (e.g. `Routed/clients`, `Routed/newsletters`)
-// and keep four files in sync:
-//   - this ROUTES dict
-//   - keymaps/mml-routed.json (key bindings)
-//   - services/mml-classifier/mml_classifier/config.py ROUTING_FOLDERS
-//   - the routing prompt(s) in services/.../prompts/route_suggest_v*.md
-// The unified-sidebar logic in sidebar-extension.js discovers folders by
-// their `Routed/` prefix at runtime, so it's name-agnostic.
+// the 8 `Routed/<name>` folders. Same move recipe as the existing
+// disposition handler (Cmd+Shift+1..4): ChangeFolderTask for IMAP/Zoho,
+// ChangeLabelsTask for Gmail. Folder lookup by displayName ('Routed/aol7'
+// etc.), pre-created in Phase 5.
 //
 // Phase 5.5.2 — each press also logs a routing_corrections row to the
 // sidecar so corrections become training signal. Source semantics:
@@ -34,14 +23,17 @@ const sidecarClient = require('./sidecar-client');
 const PLUGIN_VERSION = 'mml-productivity@0.2.0';
 
 const ROUTES = {
-  a: 'Routed/A',
-  b: 'Routed/B',
-  c: 'Routed/C',
-  e: 'Routed/E',
-  f: 'Routed/F',
-  m: 'Routed/M',
-  p: 'Routed/P',
-  s: 'Routed/S',
+  ai:             'Routed/AI',
+  aol7:           'Routed/aol7',
+  'coach-sales':  'Routed/coach sales',
+  deals:          'Routed/deals',
+  entertaining:   'Routed/entertaining',
+  finance:        'Routed/Finance',
+  models:         'Routed/models',
+  pol:            'Routed/pol',
+  smm:            'Routed/smm',
+  'tech-noise':   'Routed/Tech Noise',
+  wellness:   'Routed/Wellness',
 };
 
 let _commandDisposables = [];
@@ -123,7 +115,7 @@ export function registerRoutedCommands() {
   // eslint-disable-next-line no-console
   console.info(
     `[mml-productivity] registered ${_commandDisposables.length} routed commands. ` +
-    'Try Cmd+Option+A/B/C/E/F/M/P/S on a focused thread.'
+    'Try Cmd+Option+A/B/C/E/F/H/M/P/S/W/X on a focused thread.'
   );
 }
 

@@ -5,7 +5,7 @@ const mailspring_exports_1 = require("mailspring-exports");
 //
 // Layer 3 of the three-layer triage: a tiny dot indicating a fall-through
 // cluster message (newsletter / transactional / cold pitch) with an
-// importance_score above the TLDR threshold. Mark sees the dot in the
+// importance_score above the TLDR threshold. the owner sees the dot in the
 // thread list and the full TLDR overlay above the message body when he
 // opens it. <1% of inbox rows.
 //

@@ -4,8 +4,8 @@
 // Phase 3 — Ctrl+Cmd+N → open the note-input overlay for the focused
 // thread's latest message. The overlay handles Esc / Enter and POSTs
 // to /add-note. The overlay errors-inline if no rating row exists yet
-// for the focused message (plugin v0.1 doesn't auto-create one — the
-// owner can hit Ctrl+Cmd+0..9 first).
+// for the focused message (plugin v0.1 doesn't auto-create one — the owner
+// can hit Ctrl+Cmd+0..9 first).
 Object.defineProperty(exports, "__esModule", { value: true });
 const sidecarClient = require('./sidecar-client');
 const { openNoteOverlay } = require('./note-input-overlay');
