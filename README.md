@@ -1,4 +1,4 @@
-# MML Productivity — template
+# Local SQL Productivity — template
 
 > A local-first, person-centric email triage system. Mailspring plugin paints a colored badge on each inbox row so you can triage by *relationship importance* instead of by date. SQLite warehouse + Python sidecar + LLM scoring. No cloud.
 
@@ -8,12 +8,12 @@ This is a **template repo**. It contains the architecture, schema, scripts, plug
 
 - **Reads** your local Mailspring mail cache (`edgehill.db`).
 - **Normalizes** every message + contact into a SQLite warehouse you own.
-- **Classifies** each message into one of 31 clusters (newsletters, family, clients, etc.) using a local LLM.
-- **Rates** each sender 1–9 by relationship importance — driven by a CSV you maintain by hand.
+- **Classifies** each message into 1 of 31 standard (or build your own) clusters (newsletters, family, clients, etc.) using a local LLM.
+- **Rates** each sender 1–9 by relationship importance — driven by a CSV you maintain by hand and update by keystroke in Mailspring.
 - **Renders** a colored pill in Mailspring's thread list per row, plus a TLDR overlay for borderline newsletters.
 - **Captures** quick keystroke ratings (`Ctrl+Cmd+0..9`) and notes (`Ctrl+Cmd+N`) directly inside Mailspring.
 
-The result: an inbox where the most important relationships visually pop without needing folders, filters, or unread counts.
+The result: an inbox where the most important emails/relationships visually pop - in each folder (if you use them) to guide your brain.
 
 ## Who it's for
 
