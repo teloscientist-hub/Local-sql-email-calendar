@@ -6,14 +6,16 @@ This is a **template repo**. It contains the architecture, schema, scripts, plug
 
 ## What it does
 
-- **Reads** your local Mailspring mail cache (`edgehill.db`).
-- **Normalizes** every message + contact into a SQLite warehouse you own.
-- **Classifies** each message into one of 31 clusters (newsletters, family, clients, etc.) using a local LLM.
-- **Rates** each sender 1–9 by relationship importance — driven by a CSV you maintain by hand.
-- **Renders** a colored pill in Mailspring's thread list per row, plus a TLDR overlay for borderline newsletters.
-- **Captures** quick keystroke ratings (`Ctrl+Cmd+0..9`) and notes (`Ctrl+Cmd+N`) directly inside Mailspring.
+- **Reads** your local Mailspring mail cache (`edgehill.db`) and your Google Calendar.
+- **Normalizes** every message, contact, and calendar event into a SQLite warehouse you own.
+- **Classifies** each message into one of 38 clusters (newsletters, family, clients, etc.) using a local LLM.
+- **Routes** each message into one of 11 working folders (`Routed/AI`, `Routed/deals`, `Routed/Finance`, …) using a second LLM whose prompt **self-refines** from your overrides.
+- **Rates** each message 0–9 for personal priority using a third LLM whose prompt also **self-refines** from your manual ratings.
+- **Renders** a four-layer colored badge in Mailspring's thread list per row: filled pill (your rating), hex chip (LLM's guess), gray cluster tag, content marker dot.
+- **Captures** keystroke ratings (`Ctrl+Option+0..9`), notes (`Ctrl+Option+N`), routing (`Cmd+Option+A/B/C/E/F/H/M/P/S/W/X`), accept-suggestion (`Cmd+Option+Y`), event creation from email (`Ctrl+Option+E`), and a native sort-view overlay (`Cmd+Option+V`).
+- **Drafts** Google Calendar events from email content and writes them back to your real calendar.
 
-The result: an inbox where the most important relationships visually pop without needing folders, filters, or unread counts.
+The result: an inbox where the most important relationships visually pop, the LLM proposes a folder and a rating for every message, and the routing/rating prompts get better every time you correct them — all without leaving Mailspring.
 
 ## Who it's for
 
@@ -28,17 +30,25 @@ Someone who:
 ```
 Mailspring  ──reads──▶  edgehill.db  (mail cache, bronze)
     │
-    │ MML plugin renders badges, captures ratings/notes
+    │ MML plugin renders 4-layer badge, captures ratings/notes/routing,
+    │ drafts events, opens sort-view overlay
     ▼
 sidecar (Python, localhost:8765)  ◀──HTTP──  plugin
+    │     │
+    │     ├── routing-worker  (LLM — self-refines)
+    │     ├── rating-worker   (LLM — self-refines)
+    │     └── cluster-worker  (LLM)
     │
     │ reads / writes
     ▼
-warehouse.sqlite  (silver: messages, contacts, ratings, classifications, scores)
-    ▲
-    │ one-shot intake CLI pulls new messages from edgehill.db
-    │
-contacts_to_rate.csv  (gold: your hand-curated 1–9 per sender)
+warehouse.sqlite  (silver: messages, contacts, events, ratings,
+                   classifications, routing decisions, prompt-version log)
+    ▲                    ▲
+    │                    │
+    │           ┌────────┴────────┐
+    │           │                 │
+edgehill.db    Google Contacts   Google Calendar
+(intake CLI)   (intake CLI)      (intake CLI + write-back)
 ```
 
 Full architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -56,6 +66,7 @@ Full architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 ├── templates/        ← starter files you copy → fill in → keep out of git
 ├── README.md         ← this file
 ├── SETUP.md          ← step-by-step bring-up
+├── KEYSTROKES.md     ← cheat sheet for all in-Mailspring keybindings
 └── LICENSE
 ```
 
