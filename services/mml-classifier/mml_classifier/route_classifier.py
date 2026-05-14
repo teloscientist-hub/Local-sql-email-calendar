@@ -137,11 +137,11 @@ def _load_recent_corrections_block() -> str:
         # routed without prior suggestion (manual).
         lines.append(f"- {sender}  |  {subj}  →  {folder}  ({source})")
     return (
-        "\n\n# Recent routing decisions (treat as ground truth)\n\n"
+        "\n\n# the owner's recent routing decisions (treat as ground truth)\n\n"
         "These are the most recent routing decisions the owner made manually. "
         "Each line is `sender | subject → folder (source)`. `source=accept` "
-        "means the owner agreed with a prior LLM suggestion; `override` means they "
-        "disagreed and picked their own; `manual` means they routed without an "
+        "means the owner agreed with a prior LLM suggestion; `override` means he "
+        "disagreed and picked his own; `manual` means he routed without an "
         "LLM suggestion in play. **When an incoming email closely resembles "
         "one of these in sender or subject, prefer the same folder.**\n\n"
         + "\n".join(lines) + "\n"

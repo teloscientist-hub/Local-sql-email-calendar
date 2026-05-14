@@ -38,7 +38,7 @@ CLUSTER_SCHEMA: dict = {
     "properties": {
         "cluster_id": {"type": "integer", "minimum": 1, "maximum": 38},
         "cluster":    {"type": "string"},
-        "owner_role":  {"type": "string", "enum": ["sender", "to", "cc", "none"]},
+        "mark_role":  {"type": "string", "enum": ["sender", "to", "cc", "none"]},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "reason":     {"type": "string"},
     },
@@ -52,7 +52,7 @@ class ClusterResult:
     message_id: int
     cluster_id: int
     cluster: str
-    owner_role: str | None
+    mark_role: str | None
     confidence: str
     reason: str
     classified_at: str
@@ -64,10 +64,10 @@ class ClusterResult:
 # ---- Prompt assembly ------------------------------------------------------
 
 def _load_system_prompt() -> str:
-    """Wrapper prompt + the per-deployment cluster taxonomy doc, concatenated."""
+    """Wrapper prompt + the canonical 38-cluster doc, concatenated."""
     wrapper_path = config.PROMPTS_DIR / f"{config.CLUSTER_PROMPT_VERSION}.md"
     wrapper = wrapper_path.read_text(encoding="utf-8")
-    universal_path = config.DATA_ROOT / "email_classification_instructions_universal.md"
+    universal_path = config.EMAIL_ROOT / "email_classification_instructions_universal.md"
     try:
         universal = universal_path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -122,7 +122,7 @@ WHERE message_id = ?
 """
 
 _EXISTING_CLASSIFICATION_SQL = """
-SELECT cluster_id, cluster, confidence, reason, classified_at, owner_role
+SELECT cluster_id, cluster, confidence, reason, classified_at, mark_role
 FROM message_classifications
 WHERE message_id = ?
 """
@@ -162,7 +162,7 @@ def classify_message(message_id: int, *, force: bool = False) -> ClusterResult |
                     message_id=message_id,
                     cluster_id=int(existing["cluster_id"]),
                     cluster=existing["cluster"],
-                    owner_role=existing["owner_role"],
+                    mark_role=existing["mark_role"],
                     confidence=existing["confidence"],
                     reason=existing["reason"] or "",
                     classified_at=existing["classified_at"],
@@ -204,9 +204,9 @@ def classify_message(message_id: int, *, force: bool = False) -> ClusterResult |
     if confidence not in ("high", "medium", "low"):
         confidence = "low"
     reason = str(out.get("reason") or "")[:1000]
-    owner_role = out.get("owner_role")
-    if owner_role not in ("sender", "to", "cc", "none"):
-        owner_role = None
+    mark_role = out.get("mark_role")
+    if mark_role not in ("sender", "to", "cc", "none"):
+        mark_role = None
     classified_at = dt.datetime.now().isoformat(timespec="seconds")
 
     with db.read_write() as con:
@@ -219,11 +219,11 @@ def classify_message(message_id: int, *, force: bool = False) -> ClusterResult |
             con.execute(
                 """
                 INSERT INTO message_classifications
-                    (message_id, cluster_id, cluster, owner_role,
+                    (message_id, cluster_id, cluster, mark_role,
                      confidence, reason, source, classified_at)
                 VALUES (?, ?, ?, ?, ?, ?, 'phase2_email', ?)
                 """,
-                (message_id, cluster_id, cluster_name, owner_role,
+                (message_id, cluster_id, cluster_name, mark_role,
                  confidence, reason, classified_at),
             )
 
@@ -231,7 +231,7 @@ def classify_message(message_id: int, *, force: bool = False) -> ClusterResult |
         message_id=message_id,
         cluster_id=cluster_id,
         cluster=cluster_name,
-        owner_role=owner_role,
+        mark_role=mark_role,
         confidence=confidence,
         reason=reason,
         classified_at=classified_at,

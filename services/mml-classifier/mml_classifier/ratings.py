@@ -1,8 +1,8 @@
-"""Effective-rating computation per docs/RATING_SCALE.md.
+"""Effective-rating computation per RATING_SCALE.md.
 
 Override priority (highest wins):
     0. Latest message_ratings.rating for this message (0–9 explicit; Phase 2.5 manual tag).
-    1. Manual rating from contacts_to_rate.csv (1-9 — the owner hand-sets these).
+    1. Manual rating from contacts_to_rate.csv (1-9 — the owner set this).
     2. zero_value_senders membership → 0 (overrides everything except manual).
     3. priority_friend = 1 → floor of 8.
     4. cluster_id = 3 (Family) → 9.
@@ -41,10 +41,10 @@ class RatingSource(str, Enum):
     ZERO            = "zero"             # no signal at all
 
 
-# Sources that represent a deliberate, person-level signal the owner put
-# into the system. The plugin uses this set to gate whether to display the
-# PersonBand pill: a "2" from the CSV means the owner chose it; a "2" from
-# a cluster default doesn't.
+# Sources that represent a deliberate, person-level signal the owner put into the
+# system. The plugin uses this set to gate whether to display the PersonBand
+# pill: a "2" from the CSV means the owner chose that; a "2" from a cluster
+# default doesn't.
 PERSON_LEVEL_SOURCES: frozenset[RatingSource] = frozenset({
     RatingSource.MANUAL,
     RatingSource.CSV,
@@ -64,28 +64,41 @@ class RatingDecision:
         return (self.rating, self.source.value)
 
 
-# ---- Cluster → default rating ---------------------------------------------
-#
-# Populate this dict after you've run the taxonomy generator
-# (`python -m tools.taxonomy_generator`) and chosen your cluster IDs. Each
-# entry maps a cluster_id (int) → default rating (int 0–9). See
-# docs/RATING_SCALE.md for the meaning of each rating tier. Cluster 3 is
-# special-cased to "Family" → 9 in effective_rating_decision() below — if
-# you keep "Family" in your taxonomy, it should be cluster_id=3.
-#
-# Example shape (replace with your own clusters):
-#
-#     CLUSTER_DEFAULT_RATING: dict[int, int] = {
-#         1: 7,    # Longtime friends (without priority_friend flag)
-#         2: 5,    # Local groups / circles
-#         3: 9,    # Family (no manual rating)
-#         4: 6,    # Condolence / birthday / life event
-#         ...
-#         29: 1,   # Newsletters / lists
-#         30: 0,   # Transactional / automated notifications
-#         31: 1,   # Cold inbound pitches
-#     }
-CLUSTER_DEFAULT_RATING: dict[int, int] = {}
+# ---- Cluster → default rating, transcribed verbatim from RATING_SCALE.md ----
+
+CLUSTER_DEFAULT_RATING: dict[int, int] = {
+    1: 7,    # Longtime friends (without priority_friend flag)
+    2: 5,    # TMC men's circle
+    3: 9,    # Family (no manual rating)
+    4: 6,    # Condolence / birthday / life event
+    5: 6,    # Coaching session scheduling (paying client)
+    6: 5,    # Course access / login support
+    7: 4,    # Coaching prospects / intros
+    8: 3,    # SymFinTech B2B prospecting
+    9: 2,    # SaaS platform JV recruiting (cold templates)
+    10: 4,   # SaaS platform partnership / internal ops
+    11: 1,   # Political mailing list campaign
+    12: 2,   # Civic nonprofit era
+    13: 5,   # Philosophy society
+    14: 3,   # Debate platform ops
+    15: 6,   # Spouse's small business
+    16: 4,   # 1:1 personalized business intros
+    17: 4,   # Podcast guest booking
+    18: 3,   # Contractor hiring
+    19: 2,   # Vendor support tickets
+    20: 3,   # Vendor pre-sale inquiries
+    21: 3,   # Billing disputes / refunds
+    22: 4,   # Vendor-as-collaborator
+    23: 0,   # Self-tests
+    24: 1,   # Self-forwards / filing
+    25: 4,   # Family trust / estate admin
+    26: 3,   # Real estate / mortgage / insurance
+    27: 1,   # Craigslist / eBay
+    28: 1,   # Inbox housekeeping
+    29: 1,   # Newsletters / lists
+    30: 0,   # Transactional / automated notifications
+    31: 1,   # Cold inbound pitches
+}
 
 PRIORITY_FRIEND_FLOOR = 8
 FAMILY_CLUSTER_RATING = 9

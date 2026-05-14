@@ -33,6 +33,24 @@ CREATE TABLE content_scores (
     importance_score REAL, tldr_text TEXT, reason TEXT,
     scorer_version TEXT, scored_at TEXT
 );
+CREATE TABLE recipients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER,
+    kind TEXT, addr TEXT, name TEXT
+);
+CREATE TABLE me_addresses (
+    email TEXT PRIMARY KEY
+);
+CREATE TABLE message_ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER,
+    rating INTEGER, note TEXT, rated_at TEXT,
+    system_rating_at_time INTEGER, system_cluster_at_time INTEGER,
+    source TEXT, plugin_version TEXT, sidecar_version TEXT
+);
+CREATE TABLE rating_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER,
+    suggested_rating INTEGER, confidence REAL, reason TEXT,
+    classifier_version TEXT, scored_at TEXT
+);
 """
 
 
@@ -104,3 +122,65 @@ def test_resolve_thread_unknown_ids_returns_empty(fixture_db):
 def test_resolve_thread_empty_input(fixture_db):
     state = thread_lookup.resolve_thread([])
     assert state.matched_message_count == 0
+
+
+def test_thread_includes_rating_suggestion_when_present(fixture_db, monkeypatch):
+    monkeypatch.setattr(config, "RATING_CLASSIFIER_VERSION", "rating_suggest_v1@haiku")
+    con = sqlite3.connect(fixture_db)
+    con.execute(
+        "INSERT INTO rating_suggestions (message_id, suggested_rating, confidence, "
+        "reason, classifier_version, scored_at) VALUES "
+        "(1, 4, 0.72, 'looks routine', 'rating_suggest_v1@haiku', '2026-05-08T10:20:00')"
+    )
+    con.commit()
+    con.close()
+
+    state = thread_lookup.resolve_thread(["<a@list.example>"])
+    assert state.suggested_rating == 4
+    assert state.suggestion_confidence == pytest.approx(0.72)
+    assert state.suggestion_reason == "looks routine"
+    assert state.suggestion_scored_at == "2026-05-08T10:20:00"
+
+
+def test_thread_rating_suggestion_picks_latest_by_scored_at(fixture_db, monkeypatch):
+    monkeypatch.setattr(config, "RATING_CLASSIFIER_VERSION", "rating_suggest_v1@haiku")
+    con = sqlite3.connect(fixture_db)
+    # Message 1 scored earlier with rating 3.
+    con.execute(
+        "INSERT INTO rating_suggestions (message_id, suggested_rating, confidence, "
+        "reason, classifier_version, scored_at) VALUES "
+        "(1, 3, 0.5, 'earlier guess', 'rating_suggest_v1@haiku', '2026-05-08T10:20:00')"
+    )
+    # Message 2 scored later with rating 6 — should win.
+    con.execute(
+        "INSERT INTO rating_suggestions (message_id, suggested_rating, confidence, "
+        "reason, classifier_version, scored_at) VALUES "
+        "(2, 6, 0.85, 'later guess', 'rating_suggest_v1@haiku', '2026-05-09T10:20:00')"
+    )
+    con.commit()
+    con.close()
+
+    state = thread_lookup.resolve_thread(["<a@list.example>", "<b@list.example>"])
+    assert state.suggested_rating == 6
+    assert state.suggestion_confidence == pytest.approx(0.85)
+    assert state.suggestion_reason == "later guess"
+    assert state.suggestion_scored_at == "2026-05-09T10:20:00"
+
+
+def test_thread_ignores_rating_suggestions_at_old_classifier_version(fixture_db, monkeypatch):
+    monkeypatch.setattr(config, "RATING_CLASSIFIER_VERSION", "rating_suggest_v2@haiku")
+    con = sqlite3.connect(fixture_db)
+    # Stale row at v1 — current version is v2, so this should be invisible.
+    con.execute(
+        "INSERT INTO rating_suggestions (message_id, suggested_rating, confidence, "
+        "reason, classifier_version, scored_at) VALUES "
+        "(1, 4, 0.72, 'stale', 'rating_suggest_v1@haiku', '2026-05-08T10:20:00')"
+    )
+    con.commit()
+    con.close()
+
+    state = thread_lookup.resolve_thread(["<a@list.example>"])
+    assert state.suggested_rating is None
+    assert state.suggestion_confidence is None
+    assert state.suggestion_reason is None
+    assert state.suggestion_scored_at is None

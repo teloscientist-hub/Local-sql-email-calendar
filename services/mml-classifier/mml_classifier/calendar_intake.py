@@ -331,7 +331,7 @@ def _ensure_contact(
     cur = con.execute(
         """
         INSERT INTO contact_entities (canonical_name, canonical_email, ingester_version,
-                                      created_at, updated_at, is_me, is_list_addr, tombstone)
+                                      created_at, updated_at, is_mark, is_list_addr, tombstone)
         VALUES (?, ?, ?, ?, ?, 0, 0, 0)
         """,
         (canonical_name, email_lower, INTAKE_VERSION, now_iso, now_iso),

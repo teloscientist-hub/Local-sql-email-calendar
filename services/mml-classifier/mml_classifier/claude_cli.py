@@ -1,12 +1,12 @@
 """Thin subprocess wrapper around the `claude` CLI.
 
 Invokes `claude --print --output-format json --no-session-persistence
---disable-slash-commands` so mail-scoring runs don't pollute the owner's
-interactive session history or load skills they don't need.
+--disable-slash-commands` so mail-scoring runs don't pollute the owner's interactive
+session history or load skills they don't need.
 
 We deliberately do NOT pass `--bare`: that flag forces auth via
-ANTHROPIC_API_KEY only (OAuth/keychain are skipped), but the working system
-runs the CLI under Claude Max OAuth. Without `--bare` the CLI loads the default system
+ANTHROPIC_API_KEY only (OAuth/keychain are skipped), but the owner runs the CLI
+under Claude Max OAuth. Without `--bare` the CLI loads the default system
 prompt + CLAUDE.md + plugin sync, which costs ~105k cache_creation tokens
 (~$0.13) on the first call of an hour and pennies after that thanks to the
 1-hour ephemeral cache. For one-time historical backfill, switch to the

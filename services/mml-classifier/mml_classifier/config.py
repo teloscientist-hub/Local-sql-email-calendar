@@ -11,21 +11,19 @@ from pathlib import Path
 
 # ---- Paths ------------------------------------------------------------------
 
-# Data root: parents[3] from this file resolves to the repo root, which is
-# where warehouse.sqlite / contacts_to_rate.csv / gcal_*.json live by default.
-# Override any of the derived paths via MML_CLASSIFIER_<NAME> env vars below.
-DATA_ROOT = Path(__file__).resolve().parents[3]
+# Project root: .../MML Productivity/email/
+EMAIL_ROOT = Path(__file__).resolve().parents[3]
 
 WAREHOUSE_DB = Path(
     os.environ.get(
         "MML_CLASSIFIER_WAREHOUSE_DB",
-        DATA_ROOT / "warehouse.sqlite",
+        EMAIL_ROOT / "warehouse.sqlite",
     )
 )
 CONTACTS_CSV = Path(
     os.environ.get(
         "MML_CLASSIFIER_CONTACTS_CSV",
-        DATA_ROOT / "contacts_to_rate.csv",
+        EMAIL_ROOT / "contacts_to_rate.csv",
     )
 )
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
@@ -64,26 +62,26 @@ BODY_MAX_CHARS = int(os.environ.get("MML_CLASSIFIER_BODY_MAX_CHARS", "8000"))
 GCAL_CLIENT_SECRETS_PATH = Path(
     os.environ.get(
         "MML_CLASSIFIER_GCAL_CLIENT_SECRETS_PATH",
-        DATA_ROOT / "gcal_client_secrets.json",
+        EMAIL_ROOT / "gcal_client_secrets.json",
     )
 )
 GCAL_TOKEN_PATH = Path(
     os.environ.get(
         "MML_CLASSIFIER_GCAL_TOKEN_PATH",
-        DATA_ROOT / "gcal_token.json",
+        EMAIL_ROOT / "gcal_token.json",
     )
 )
 GCAL_GOOGLE_ACCOUNT = os.environ.get(
-    "MML_CLASSIFIER_GCAL_GOOGLE_ACCOUNT", ""
+    "MML_CLASSIFIER_GCAL_GOOGLE_ACCOUNT", "you@example.com"
 )
 GCAL_TIMEZONE = os.environ.get(
     "MML_CLASSIFIER_GCAL_TIMEZONE", "America/Los_Angeles"
 )
-# Scopes are intentionally minimal — events.insert + readonly on the calendar
-# list (for seeding `calendars` rows).
+# Scopes: calendar (events + readonly) + contacts readonly for People API.
 GCAL_SCOPES = (
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/contacts.readonly",
 )
 
 # Prompt versioning for the draft-event LLM call.
@@ -96,23 +94,18 @@ EVENT_DRAFTER_VERSION = f"{EVENT_DRAFTER_PROMPT_VERSION}@{CLAUDE_MODEL}"
 # also valid and means "no Routed/ folder is appropriate." Stored verbatim
 # in routing_suggestions.suggested_folder so we can grow this set later
 # without a schema change.
-#
-# Names below are GENERIC PLACEHOLDERS (Routed/A..H). Rename to your own
-# folder names and keep four files in sync:
-#   - this tuple
-#   - plugin/keymaps/mml-routed.json (key bindings)
-#   - plugin/src/routed-keystroke-handler.js ROUTES dict
-#   - prompts/route_suggest_v*.md (the LLM must see the same folder names
-#     it's allowed to suggest)
 ROUTING_FOLDERS: tuple[str, ...] = (
-    "Routed/A",
-    "Routed/B",
-    "Routed/C",
-    "Routed/E",
-    "Routed/F",
-    "Routed/M",
-    "Routed/P",
-    "Routed/S",
+    "Routed/AI",
+    "Routed/aol7",
+    "Routed/coach sales",
+    "Routed/deals",
+    "Routed/entertaining",
+    "Routed/Finance",
+    "Routed/models",
+    "Routed/pol",
+    "Routed/smm",
+    "Routed/Tech Noise",
+    "Routed/Wellness",
 )
 
 # Source of truth for the live prompt version is now a file written by the
@@ -120,7 +113,7 @@ ROUTING_FOLDERS: tuple[str, ...] = (
 # like `route_suggest_v4` (or v5, v6, …). Atomically rewritten on each
 # refinement. Rollback = hand-write a different name to this file.
 _CURRENT_VERSION_FILE = PROMPTS_DIR / "CURRENT_VERSION.txt"
-_PROMPT_VERSION_FALLBACK = "route_suggest_v4"
+_PROMPT_VERSION_FALLBACK = "route_suggest_v6"
 
 
 def _read_current_prompt_version() -> str:
@@ -176,10 +169,26 @@ ROUTING_CORRECTIONS_FEW_SHOT_LIMIT = int(
 
 # ---- Rating classifier (Phase 6.0 — 0-9 rating suggester) ------------------
 
-# Source-of-truth for the 0-9 scale lives at `docs/RATING_SCALE.md`. The
-# prompt embeds the scale verbatim (it's short); cluster defaults live in
-# ratings.py CLUSTER_DEFAULT_RATING. Both feed prompts/rating_suggest_v1.md.
-RATING_PROMPT_VERSION = "rating_suggest_v1"
+# Source-of-truth for the 0-9 scale lives at `email/RATING_SCALE.md`. The
+# prompt embeds the owner's scale verbatim (it's short) plus a cluster-default
+# table — both shipped inside prompts/rating_suggest_v1.md.
+#
+# Phase 6.0.g — version pointer pattern (same as routing's). The live
+# rating-prompt name lives in prompts/RATING_CURRENT_VERSION.txt, atomically
+# rewritten by the self-refinement loop. Rollback = one-line file write.
+_RATING_CURRENT_VERSION_FILE = PROMPTS_DIR / "RATING_CURRENT_VERSION.txt"
+_RATING_PROMPT_VERSION_FALLBACK = "rating_suggest_v1"
+
+
+def _read_rating_current_prompt_version() -> str:
+    try:
+        v = _RATING_CURRENT_VERSION_FILE.read_text(encoding="utf-8").strip()
+        return v or _RATING_PROMPT_VERSION_FALLBACK
+    except FileNotFoundError:
+        return _RATING_PROMPT_VERSION_FALLBACK
+
+
+RATING_PROMPT_VERSION = _read_rating_current_prompt_version()
 RATING_CLASSIFIER_MODEL = os.environ.get(
     "MML_CLASSIFIER_RATING_MODEL", CLAUDE_MODEL,
 )
@@ -197,11 +206,31 @@ RATING_CORRECTIONS_FEW_SHOT_LIMIT = int(os.environ.get(
     "MML_CLASSIFIER_RATING_CORRECTIONS_FEW_SHOT_LIMIT", "50"
 ))
 
+# Phase 6.0.g — self-refining rating prompt.
+# Trigger the refinement after this many net-new message_ratings rows have
+# accumulated since the last refinement. Counter lives in the running
+# sidecar (resets on process restart).
+RATING_REFINEMENT_TRIGGER_COUNT = int(os.environ.get(
+    "MML_CLASSIFIER_RATING_REFINEMENT_TRIGGER_COUNT", "25"
+))
+RATING_REFINEMENT_MODEL = os.environ.get(
+    "MML_CLASSIFIER_RATING_REFINEMENT_MODEL", "sonnet"
+)
+RATING_REFINEMENT_PROMPT_VERSION = "rating_refinement_meta_v1"
+# Window: how many recent message_ratings rows to give the meta-LLM as
+# corpus. Joined at refinement time to rating_suggestions so the
+# meta-LLM can identify disagreements.
+RATING_REFINEMENT_RATINGS_WINDOW = int(os.environ.get(
+    "MML_CLASSIFIER_RATING_REFINEMENT_RATINGS_WINDOW", "200"
+))
+RATING_REFINEMENT_TIMEOUT_SECONDS = int(os.environ.get(
+    "MML_CLASSIFIER_RATING_REFINEMENT_TIMEOUT", "300"
+))
+
 # ---- Cluster classifier (Phase 4.5 — real-time) -----------------------------
 
-# Single source of truth for the cluster taxonomy lives at
-# `<DATA_ROOT>/email_classification_instructions_universal.md`, produced by
-# running `python -m tools.taxonomy_generator`. The local wrapper
+# Single source of truth for the 38-cluster taxonomy lives at
+# `email/email_classification_instructions_universal.md`. The local wrapper
 # `prompts/cluster_classify_v1.md` references it; runtime concatenates the
 # two for the system prompt.
 CLUSTER_PROMPT_VERSION = "cluster_classify_v1"

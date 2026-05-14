@@ -72,7 +72,7 @@ def temp_warehouse(tmp_path: Path) -> Path:
         con.executemany(
             "INSERT INTO messages (id, sender_addr, sender_name) VALUES (?, ?, ?)",
             [
-                (1, "alex@example.com", "Alex Example"),
+                (1, "melinda@vintagejewelrycollect.com", "Spouse Lewis"),
                 (2, "newsletter@example.com", "Example Newsletter"),
                 (3, "newsender@example.com", "Brand New Sender"),
                 (4, None, None),
@@ -90,7 +90,7 @@ def temp_contacts_csv(tmp_path: Path) -> Path:
     csv_path = tmp_path / "contacts_to_rate.csv"
     csv_path.write_text(
         CSV_HEADER
-        + "9,Alex Example,alex@example.com,,0,0,2010,2026,16,0,\n"
+        + "9,Spouse Lewis,melinda@vintagejewelrycollect.com,,0,0,2010,2026,16,0,\n"
         + "1,Example Newsletter,newsletter@example.com,info@example.com|news@example.com,"
         "0,0,2020,2026,6,0,\n",
         encoding="utf-8",
@@ -138,7 +138,7 @@ def test_bare_tag_inserts_row_and_updates_csv(temp_warehouse, temp_contacts_csv)
     )
     assert result.error is None
     assert result.rating_id is not None
-    assert result.contact_email == "alex@example.com"
+    assert result.contact_email == "melinda@vintagejewelrycollect.com"
     assert result.contact_rating_updated is True
 
     rows = _read_message_ratings(temp_warehouse)
@@ -151,7 +151,7 @@ def test_bare_tag_inserts_row_and_updates_csv(temp_warehouse, temp_contacts_csv)
     assert r["source"] == "plugin-keystroke"
 
     assert _csv_rating_for(
-        temp_contacts_csv, "alex@example.com"
+        temp_contacts_csv, "melinda@vintagejewelrycollect.com"
     ) == "4"
 
 
@@ -168,9 +168,9 @@ def test_tag_with_note_inserts_row_but_suppresses_csv(temp_warehouse, temp_conta
     assert len(rows) == 1
     assert rows[0]["note"] == "promo blast, not a personal email"
 
-    # CSV unchanged — Alex still 9.
+    # CSV unchanged — Spouse still 9.
     assert _csv_rating_for(
-        temp_contacts_csv, "alex@example.com"
+        temp_contacts_csv, "melinda@vintagejewelrycollect.com"
     ) == "9"
 
 
@@ -224,7 +224,7 @@ def test_tag_zero_is_explicit_signal(temp_warehouse, temp_contacts_csv):
     rows = _read_message_ratings(temp_warehouse)
     assert rows[0]["rating"] == 0
     assert _csv_rating_for(
-        temp_contacts_csv, "alex@example.com"
+        temp_contacts_csv, "melinda@vintagejewelrycollect.com"
     ) == "0"
 
 
@@ -275,7 +275,7 @@ def test_rate_via_rfc_message_id(temp_warehouse, temp_contacts_csv):
     )
     assert result.error is None
     assert result.rating_id is not None
-    assert result.contact_email == "alex@example.com"
+    assert result.contact_email == "melinda@vintagejewelrycollect.com"
     rows = _read_message_ratings(temp_warehouse)
     assert len(rows) == 1
     assert rows[0]["rating"] == 7
@@ -312,7 +312,7 @@ def test_repeat_tagging_appends_rows(temp_warehouse, temp_contacts_csv):
     assert [r["rating"] for r in rows] == [4, 7]
     # CSV should have the latest rating.
     assert _csv_rating_for(
-        temp_contacts_csv, "alex@example.com"
+        temp_contacts_csv, "melinda@vintagejewelrycollect.com"
     ) == "7"
 
 
@@ -321,7 +321,7 @@ def test_repeat_tagging_appends_rows(temp_warehouse, temp_contacts_csv):
 
 def test_effective_rating_returns_latest_manual_tag(temp_warehouse, temp_contacts_csv):
     """Per-message manual tag wins over per-contact and cluster default."""
-    # Alex has rating 9 in CSV; cluster 30 default is 0. Without a manual
+    # Spouse has rating 9 in CSV; cluster 30 default is 0. Without a manual
     # tag, effective rating is 9 (per-contact wins). With a tag of 4,
     # effective rating becomes 4.
     manual_rating.record_tag(
@@ -366,7 +366,7 @@ def test_effective_rating_same_second_tiebreaker(temp_warehouse, temp_contacts_c
 
 
 def test_effective_rating_falls_through_when_no_manual_tag(temp_warehouse, temp_contacts_csv):
-    """No manual tag → falls back to per-contact CSV (Alex = 9)."""
+    """No manual tag → falls back to per-contact CSV (Spouse = 9)."""
     assert ratings.effective_rating_for_message(1) == 9
 
 

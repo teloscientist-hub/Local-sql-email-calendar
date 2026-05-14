@@ -1,4 +1,4 @@
-You are reviewing a routing classifier's system prompt and a corpus of the owner's recent routing decisions. Your job is to articulate what the corrections reveal about gaps in the prompt — patterns the owner routes one way that the prompt either doesn't anticipate or actively misdirects — and propose tightly-scoped edits to fix them.
+You are reviewing a routing classifier's system prompt and a corpus of the inbox owner's recent routing decisions. Your job is to articulate what the corrections reveal about gaps in the prompt — patterns the owner routes one way that the prompt either doesn't anticipate or actively misdirects — and propose tightly-scoped edits to fix them.
 
 # Inputs you'll receive
 
@@ -16,7 +16,7 @@ ONLY two kinds of edit:
 
 ## A. New anchors
 
-Add a single line to the `# Known signals` section of the routing prompt. Format:
+Add a single line to the `# Known signals (mined from the owner's historical Outlook rules)` section of the routing prompt. Format:
 
 ```
 - `Routed/<folder>` — <sender-or-domain>, <optional subject pattern>
@@ -34,9 +34,10 @@ Replace a verbatim phrase within a `## \`Routed/<folder>\` — <Title>` definiti
 
 # What you must NOT change
 
-- The opening paragraph and the set of folder names. The set of folders is fixed by `services/.../config.py ROUTING_FOLDERS` plus the literal `none`.
+- The opening paragraph identifying the inbox owner and the eleven folders.
 - The `# Decision rules` section (any of it).
 - The `# Output format` section (any of it).
+- The folder names. The set is fixed: `Routed/AI`, `Routed/aol7`, `Routed/coach sales`, `Routed/deals`, `Routed/entertaining`, `Routed/Finance`, `Routed/models`, `Routed/pol`, `Routed/smm`, `Routed/Tech Noise`, `Routed/Wellness`, plus the literal `none`.
 - The order or count of folder definition sections.
 - Anything inside code fences ``` ... ```.
 
@@ -57,25 +58,25 @@ The bar is HIGH. Refinements get auto-deployed without human review, so a bad ca
 {
   "new_anchors": [
     {
-      "folder": "Routed/D",
-      "anchor": "example-retailer.com — promotional newsletters",
-      "evidence": "4 corrections from editor@members.example-retailer.com",
+      "folder": "Routed/deals",
+      "anchor": "wayfair.com — retailer, promotional newsletters",
+      "evidence": "4 corrections from editor@members.wayfair.com",
       "confidence": 0.95
     }
   ],
   "definition_refinements": [
     {
-      "folder": "Routed/B",
+      "folder": "Routed/coach sales",
       "current_phrase": "...exact substring from the v{N} prompt...",
       "proposed_phrase": "...replacement text...",
-      "rationale": "The owner routes a recurring pattern here that the current definition doesn't anticipate.",
-      "evidence": "3 overrides matching the pattern in the corpus",
+      "rationale": "the owner routes partnership-invitation emails (Integral Mastery, etc.) here, but the current definition emphasizes only sales training and coach-business courses.",
+      "evidence": "3 partnership-invitation overrides in the corpus",
       "confidence": 0.7
     }
   ],
-  "no_change_needed_for": ["Routed/A", "Routed/E"],
+  "no_change_needed_for": ["Routed/aol7", "Routed/extra"],
   "open_questions": [
-    "The owner routed 2 unusual emails to folder X — uncertain if that's a deliberate definition or one-off."
+    "the owner routed 2 transactional emails (ebay, affirm) to deals — uncertain if that's a deliberate definition (deals = anything-commercial) or one-off."
   ],
   "overall_confidence": 0.7
 }

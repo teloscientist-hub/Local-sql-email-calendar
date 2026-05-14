@@ -31,7 +31,8 @@ from urllib.parse import parse_qs, urlsplit
 from . import (
     __version__, cluster_classifier, config, content_scorer, db, event_creator,
     event_drafter, gcal_oauth, mailspring_intake, manual_rating, notes,
-    prompt_refinement, rating_classifier, route_classifier, thread_lookup,
+    prompt_refinement, rating_classifier, rating_prompt_refinement,
+    route_classifier, thread_lookup, threads_enrich,
 )
 
 log = logging.getLogger(__name__)
@@ -50,6 +51,12 @@ _INTAKE_LOCK = Lock()
 # concurrently. Resets to 0 when refinement fires.
 _REFINEMENT_COUNTER_LOCK = Lock()
 _NEW_CORRECTIONS_SINCE_REFINEMENT = 0
+
+# Phase 6.0.g — analog counter for the rating prompt. Every successful
+# /rate-message bumps this; when it crosses RATING_REFINEMENT_TRIGGER_COUNT
+# the rating-prompt refinement fires in a one-shot daemon thread.
+_RATING_REFINEMENT_COUNTER_LOCK = Lock()
+_NEW_RATINGS_SINCE_REFINEMENT = 0
 
 
 def _bump_refinement_counter_and_maybe_fire() -> None:
@@ -90,6 +97,46 @@ def _bump_refinement_counter_and_maybe_fire() -> None:
     t = Thread(target=_run, name="routing-refinement", daemon=True)
     t.start()
 
+
+def _bump_rating_refinement_counter_and_maybe_fire() -> None:
+    """Phase 6.0.g analog of _bump_refinement_counter_and_maybe_fire. Every
+    successful /rate-message increments the counter; on threshold crossing,
+    a daemon thread runs rating_prompt_refinement.refine(). Locked against
+    concurrent HTTP worker threads. Idempotent across rapid bursts via the
+    refinement module's own file lock."""
+    global _NEW_RATINGS_SINCE_REFINEMENT
+    fire = False
+    with _RATING_REFINEMENT_COUNTER_LOCK:
+        _NEW_RATINGS_SINCE_REFINEMENT += 1
+        if _NEW_RATINGS_SINCE_REFINEMENT >= config.RATING_REFINEMENT_TRIGGER_COUNT:
+            _NEW_RATINGS_SINCE_REFINEMENT = 0
+            fire = True
+    if not fire:
+        return
+
+    def _run() -> None:
+        try:
+            with rating_prompt_refinement._RefinementLock():
+                log.info("rating refinement: auto-trigger fired at tag threshold "
+                         "%d; calling meta-LLM",
+                         config.RATING_REFINEMENT_TRIGGER_COUNT)
+                result = rating_prompt_refinement.refine(dry_run=False)
+                if result.deployed:
+                    log.info("rating refinement: deployed %s (anchors=%d)",
+                             result.new_version_name,
+                             result.applied_anchors)
+                else:
+                    log.info("rating refinement: no deployment (reason=%s)",
+                             result.rejected_reason)
+        except RuntimeError as e:
+            log.info("rating refinement: skipped (already running): %s", e)
+        except Exception as e:  # noqa: BLE001
+            log.exception("rating refinement: unexpected failure: %s", e)
+
+    t = Thread(target=_run, name="rating-refinement", daemon=True)
+    t.start()
+
+
 # Background routing-classification queue. Producer: /intake-now after a
 # successful commit. Consumer: _ROUTING_WORKER thread. Dedupes on insert
 # via _ROUTING_SEEN — a single message_id is only ever enqueued once per
@@ -111,6 +158,15 @@ _CLUSTER_SEEN_LOCK = Lock()
 _RATING_QUEUE: "Queue[int]" = Queue()
 _RATING_SEEN: set[int] = set()
 _RATING_SEEN_LOCK = Lock()
+
+# Content-scorer queue. Producer: _cluster_worker after a successful
+# classification with cluster_id ∈ {29, 30, 31} (the only clusters the
+# scorer is configured for). Consumer: _content_worker, single-flighted
+# against /score-now via _SCORE_LOCK.
+_CONTENT_SCORER_CLUSTERS = frozenset({29, 30, 31})
+_CONTENT_QUEUE: "Queue[int]" = Queue()
+_CONTENT_SEEN: set[int] = set()
+_CONTENT_SEEN_LOCK = Lock()
 
 
 def _routing_worker() -> None:
@@ -156,7 +212,9 @@ def _cluster_worker() -> None:
         except Empty:
             continue
         try:
-            cluster_classifier.classify_message(mid)
+            result = cluster_classifier.classify_message(mid)
+            if result is not None and result.cluster_id in _CONTENT_SCORER_CLUSTERS:
+                _enqueue_for_content_scoring([mid])
         except Exception as e:  # noqa: BLE001
             log.warning("cluster-worker: msg %d failed: %s", mid, e)
         finally:
@@ -207,6 +265,38 @@ def _enqueue_for_rating_classification(message_ids: list[int]) -> int:
     return added
 
 
+def _content_worker() -> None:
+    """Pop message_ids off the content-scorer queue and run the LLM scorer.
+    Coordinates with /score-now via _SCORE_LOCK so the two callers never
+    overlap. Errors are logged and swallowed; the worker exits on _ROUTING_STOP."""
+    while not _ROUTING_STOP.is_set():
+        try:
+            mid = _CONTENT_QUEUE.get(timeout=1.0)
+        except Empty:
+            continue
+        try:
+            with _SCORE_LOCK:
+                content_scorer.score_message_ids([mid])
+        except Exception as e:  # noqa: BLE001
+            log.warning("content-worker: msg %d failed: %s", mid, e)
+        finally:
+            _CONTENT_QUEUE.task_done()
+
+
+def _enqueue_for_content_scoring(message_ids: list[int]) -> int:
+    added = 0
+    with _CONTENT_SEEN_LOCK:
+        for mid in message_ids:
+            if not isinstance(mid, int):
+                continue
+            if mid in _CONTENT_SEEN:
+                continue
+            _CONTENT_SEEN.add(mid)
+            _CONTENT_QUEUE.put(mid)
+            added += 1
+    return added
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"mml-classifier/{__version__}"
 
@@ -220,6 +310,8 @@ class Handler(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         if url.path == "/thread":
             return self._handle_thread(parse_qs(url.query))
+        if url.path == "/message-lookup":
+            return self._handle_message_lookup(parse_qs(url.query))
         if url.path == "/healthz":
             return self._handle_healthz()
         self._send_json(404, {"error": "not found", "path": url.path})
@@ -244,9 +336,57 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_intake_now()
         if url.path == "/rating-suggest":
             return self._handle_rating_suggest()
+        if url.path == "/threads-enrich":
+            return self._handle_threads_enrich()
         self._send_json(404, {"error": "not found", "path": url.path})
 
     # ---- Handlers ---------------------------------------------------------
+
+    def _handle_message_lookup(self, params: dict[str, list[str]]) -> None:
+        """GET /message-lookup?ids=<rfc>,<rfc>,...
+
+        Resolve RFC-822 Message-IDs to their warehouse rows. Returns the
+        lightweight metadata used by the plugin's debug HUD: warehouse id,
+        subject, sender, received_date, cluster (if classified), rating.
+        Always 200; unknown ids simply don't appear in the response."""
+        raw = (params.get("ids") or [""])[0]
+        rfc_ids = [m for m in (s.strip() for s in raw.split(",")) if m]
+        if not rfc_ids:
+            self._send_json(200, {"messages": []})
+            return
+        placeholders = ",".join("?" * len(rfc_ids))
+        sql = f"""
+            SELECT m.id, m.message_id, m.subject, m.sender_addr,
+                   m.received_date,
+                   mc.cluster_id, mc.cluster,
+                   (SELECT rating FROM message_ratings mr
+                    WHERE mr.message_id = m.id
+                    ORDER BY rated_at DESC, id DESC LIMIT 1) AS rating
+            FROM messages m
+            LEFT JOIN message_classifications mc ON mc.message_id = m.id
+            WHERE m.message_id IN ({placeholders})
+        """
+        try:
+            with db.read_only() as con:
+                rows = con.execute(sql, rfc_ids).fetchall()
+        except Exception as e:  # noqa: BLE001
+            log.exception("/message-lookup failed for %d ids", len(rfc_ids))
+            self._send_json(200, {"messages": [], "error": str(e)})
+            return
+        messages = [
+            {
+                "warehouse_id": int(r["id"]),
+                "rfc_message_id": r["message_id"],
+                "subject": r["subject"],
+                "sender_addr": r["sender_addr"],
+                "received_date": r["received_date"],
+                "cluster_id": r["cluster_id"],
+                "cluster": r["cluster"],
+                "rating": r["rating"],
+            }
+            for r in rows
+        ]
+        self._send_json(200, {"messages": messages})
 
     def _handle_thread(self, params: dict[str, list[str]]) -> None:
         raw = (params.get("ids") or [""])[0]
@@ -329,6 +469,15 @@ class Handler(BaseHTTPRequestHandler):
                 "contact_rating_updated": False, "error": str(e),
             })
             return
+
+        # Phase 6.0.g — every successful tag is a refinement-trigger signal.
+        # Only count rows that actually wrote to message_ratings (rating_id
+        # populated); error paths and dedup-noops don't move the counter.
+        if getattr(result, "rating_id", None) is not None:
+            try:
+                _bump_rating_refinement_counter_and_maybe_fire()
+            except Exception as e:  # noqa: BLE001
+                log.warning("rating refinement counter bump failed: %s", e)
 
         self._send_json(200, result.to_dict())
 
@@ -616,6 +765,37 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json(200, suggestion.to_dict())
 
+    def _handle_threads_enrich(self) -> None:
+        """POST /threads-enrich body={"rfc_message_ids": [str, ...]}
+        Returns {"threads": [EnrichedThread, ...]} parallel to input order.
+        Used by the sort-view overlay (Cmd+Option+V) — one shot per open."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            payload = json.loads(raw or "{}")
+        except (ValueError, json.JSONDecodeError) as e:
+            self._send_json(200, {"threads": [], "error": f"invalid json: {e}"})
+            return
+
+        rfc_ids = payload.get("rfc_message_ids") or []
+        if not isinstance(rfc_ids, list) or not all(isinstance(x, str) for x in rfc_ids):
+            self._send_json(200, {"threads": [],
+                                  "error": "rfc_message_ids must be list[str]"})
+            return
+        # Soft cap: refuse absurd requests (typical inbox view ≤ 200 threads).
+        if len(rfc_ids) > 1000:
+            self._send_json(200, {"threads": [],
+                                  "error": f"too many ids ({len(rfc_ids)}); cap=1000"})
+            return
+
+        try:
+            enriched = threads_enrich.enrich(rfc_ids)
+        except Exception as e:  # noqa: BLE001
+            log.exception("/threads-enrich failed for %d ids", len(rfc_ids))
+            self._send_json(200, {"threads": [], "error": str(e)})
+            return
+        self._send_json(200, {"threads": [t.to_dict() for t in enriched]})
+
     def _handle_intake_now(self) -> None:
         """POST /intake-now (body ignored)
 
@@ -757,6 +937,11 @@ def serve(host: str = config.HOST, port: int = config.PORT) -> None:
     rating_worker = Thread(target=_rating_worker, name="rating-worker", daemon=True)
     rating_worker.start()
     log.info("rating-worker started (background 0-9 rating classification queue).")
+
+    # Content-scorer worker. Fed by _cluster_worker for cluster_id ∈ {29,30,31}.
+    content_worker = Thread(target=_content_worker, name="content-worker", daemon=True)
+    content_worker.start()
+    log.info("content-worker started (LLM content scorer queue, clusters 29/30/31).")
 
     log.info("mml-classifier listening on http://%s:%d (warehouse=%s)",
              host, port, config.WAREHOUSE_DB)

@@ -4,9 +4,9 @@ Suggests a 0-9 rating for one message, mirroring route_classifier.py's
 architecture. Output persists to `rating_suggestions` (append-only).
 
 In-context learning: every classification call appends the owner's last ~50
-manual ratings (from `message_ratings`, including any `note` they typed via
+manual ratings (from `message_ratings`, including any `note` he typed via
 the Ctrl+Option+N overlay) to the system prompt as ground-truth few-shot
-examples. Notes explain *why* they rated — when present, the LLM uses them
+examples. Notes explain *why* he rated — when present, the LLM uses them
 to generalize the reasoning to similar future mail.
 
 The rating classifier is decoupled from the "show this to the owner" decision:
@@ -122,7 +122,7 @@ def _load_few_shot_block() -> str:
         suffix = f' (note: "{note}")' if note else ""
         lines.append(f"- {sender}  |  {subj}  |  body: {body}  →  rating={r['rating']}{suffix}")
     return (
-        "\n\n# Recent manual ratings (ground truth, treat as authoritative)\n\n"
+        "\n\n# the owner's recent manual ratings (ground truth, treat as authoritative)\n\n"
         "These are real ratings the owner assigned via Ctrl+Option+<digit>. Each line "
         "is `sender | subject | body-snippet → rating (note: why)` where the note "
         "may be present or absent. When an incoming email closely resembles one of "

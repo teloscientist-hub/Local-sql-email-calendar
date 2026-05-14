@@ -14,7 +14,7 @@ from mml_classifier import ratings
 @pytest.fixture(autouse=True)
 def _stub_manual_ratings(monkeypatch):
     fixed = {
-        "alex@example.com": 9,
+        "melinda@vintagejewelrycollect.com": 9,
         "leigh@example.com": 7,
     }
     monkeypatch.setattr(ratings, "manual_ratings", lambda: fixed)
@@ -24,7 +24,7 @@ def _stub_manual_ratings(monkeypatch):
 def test_manual_rating_overrides_everything():
     # Cluster 30 (transactional) defaults to 0; manual rating wins.
     assert ratings.effective_rating_for(
-        sender_addr="alex@example.com",
+        sender_addr="melinda@vintagejewelrycollect.com",
         cluster_id=30,
         priority_friend=False,
     ) == 9
@@ -77,7 +77,7 @@ def test_transactional_default_zero():
 def test_case_insensitive_manual_lookup():
     # Manual ratings are stored lowercase; sender_addr should be case-folded.
     assert ratings.effective_rating_for(
-        sender_addr="ALEX@example.com",
+        sender_addr="MELINDA@VintageJewelryCollect.com",
         cluster_id=30,
         priority_friend=False,
     ) == 9

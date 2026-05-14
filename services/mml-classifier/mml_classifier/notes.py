@@ -52,8 +52,8 @@ def add_note(
       - `message_id` (warehouse PK; positional for back-compat), or
       - `rfc_message_id` (RFC-822 Message-ID — the plugin's natural input).
 
-    Empty/whitespace note → stored as NULL (treated as a delete). Lets the
-    owner clear an erroneous note via Ctrl+Cmd+N → empty Enter.
+    Empty/whitespace note → stored as NULL (treated as a delete). Lets the owner
+    clear an erroneous note via Ctrl+Cmd+N → empty Enter.
 
     Returns AddNoteResult(rating_id, note, error). Never raises for the
     no-rating case — surfaces error="no rating yet for this message" so the

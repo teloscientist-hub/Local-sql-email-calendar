@@ -1,1 +1,1 @@
-route_suggest_v4
+route_suggest_v6
