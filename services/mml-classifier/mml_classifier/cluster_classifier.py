@@ -6,7 +6,7 @@ module fills the gap for live Mailspring mail by classifying one message
 at a time and writing the same table.
 
 The system prompt is the local `prompts/cluster_classify_v1.md` wrapper
-concatenated with `email/email_classification_instructions_universal.md`
+concatenated with `templates/email_classification_instructions_universal.template.md`
 (the canonical 38-cluster doc), so the doc remains the single source of
 truth — edits to it take effect on the next sidecar restart.
 

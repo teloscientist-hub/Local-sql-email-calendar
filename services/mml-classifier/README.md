@@ -23,7 +23,7 @@ launchd/com.mml.classifier.plist
 ## Setup (one-time)
 
 ```bash
-cd "email/services/mml-classifier"
+cd "services/mml-classifier"
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[test]   # zero runtime deps; test deps optional

@@ -109,7 +109,7 @@ def main() -> None:
     lines.append("# Rated Contacts Audit")
     lines.append("")
     lines.append(
-        f"Generated from `email/contacts_to_rate.csv`. "
+        f"Generated from `templates/contacts_to_rate.template.csv`. "
         f"Total CSV rows: {total_rows:,}.  Rows with a non-blank rating: {rated:,}."
     )
     lines.append("")

@@ -21,7 +21,7 @@ There are six moving parts. They communicate via SQLite (one shared warehouse) a
                                         │   /Applications/Mailspring.app    │
                                         │                                   │
                                         │   ┌─────────────────────────────┐ │
-                                        │   │ MML plugin (JS/JSX)         │ │  ← email/mailspring-spike/
+                                        │   │ MML plugin (JS/JSX)         │ │  ← plugin/
                                         │   │  - badge in thread list     │ │
                                         │   │  - tag keystrokes ⌃⌥0..9    │ │
                                         │   │  - note keystroke ⌃⌥N       │ │
@@ -40,7 +40,7 @@ There are six moving parts. They communicate via SQLite (one shared warehouse) a
                                                      │  HTTP localhost:8765
                                                      ▼
    ┌──────────────────────────┐         ┌───────────────────────────────────────────┐
-   │ warehouse.sqlite         │ ◀──read─│  mml-classifier sidecar (Python)          │ ← email/services/mml-classifier/
+   │ warehouse.sqlite         │ ◀──read─│  mml-classifier sidecar (Python)          │ ← services/mml-classifier/
    │  (silver, source-of-     │ ──write─│   GET  /thread, /healthz                  │
    │   truth)                 │         │   POST /rate-message, /add-note           │
    │                          │         │   POST /score-now, /draft-event,          │
@@ -74,7 +74,7 @@ There are six moving parts. They communicate via SQLite (one shared warehouse) a
               │
    ┌──────────┴────────────────┐
    │ contacts_to_rate.csv      │ ← the owner's hand-curated person ratings (1–9, blank=unrated)
-   │  (the user-facing surface │   email/contacts_to_rate.csv
+   │  (the user-facing surface │   templates/contacts_to_rate.template.csv
    │   the owner edits by hand)     │
    └───────────────────────────┘
 ```
@@ -132,9 +132,9 @@ The single source of truth. SQLite, ~600 MB+. Schema is grouped into three conce
 - `message_classifications.message_id` is `UNIQUE` — only one cluster per message. Cluster reclassification requires `--force` (DELETE-then-INSERT).
 - `message_ratings.note` is the ONLY in-place updateable cosmetic column. Everything else is append-only.
 
-### 2. Sidecar — `email/services/mml-classifier/`
+### 2. Sidecar — `services/mml-classifier/`
 
-Python HTTP daemon, stdlib `http.server` (no FastAPI, no aiohttp). Listens on `127.0.0.1:8765`. Autostarts via `launchd` (plist at `email/services/mml-classifier/launchd/com.mml.classifier.plist` symlinked from `~/Library/LaunchAgents/`).
+Python HTTP daemon, stdlib `http.server` (no FastAPI, no aiohttp). Listens on `127.0.0.1:8765`. Autostarts via `launchd` (plist at `services/mml-classifier/launchd/com.mml.classifier.plist` symlinked from `~/Library/LaunchAgents/`).
 
 **Endpoints (all return 200 OK with nullable fields rather than 4xx; plugin treats sidecar-down as silent fail):**
 
@@ -210,13 +210,13 @@ Python HTTP daemon, stdlib `http.server` (no FastAPI, no aiohttp). Listens on `1
 
 **Calendar files (Phase 5)** — see §5 below.
 
-### 3. Plugin — `email/mailspring-spike/`
+### 3. Plugin — `plugin/`
 
 Mailspring 1.21 plugin (TypeScript/JSX, transpiled to `lib/` via `tsc`). Symlinked into Mailspring's package directory:
 
 ```
 ~/Library/Application Support/Mailspring/packages/mml-engagement-spike
-  → email/mailspring-spike
+  → plugin
 ```
 
 The symlink name still says `mml-engagement-spike` — Mailspring loads packages by `package.json`'s `name` field (`mml-productivity`), not by directory name, so the rename is purely cosmetic.
@@ -269,7 +269,7 @@ Originally a one-shot CLI. Now also auto-triggered from the plugin so warehouse 
 
 **CLI:**
 ```bash
-cd email/services/mml-classifier
+cd services/mml-classifier
 .venv/bin/python -m mml_classifier.mailspring_intake             # dry-run, no limit
 .venv/bin/python -m mml_classifier.mailspring_intake --commit    # actually write
 .venv/bin/python -m mml_classifier.mailspring_intake --limit 50  # cap for testing
@@ -289,9 +289,9 @@ cd email/services/mml-classifier
 
 **Default CLI behavior is dry-run** — prints summary + first 5 sample inserts + new addresses. Only `--commit` actually writes.
 
-**Plan doc:** `email/PLAN_PHASE4_INTAKE.md`.
+**Plan doc:** `PLAN_PHASE4_INTAKE.md`.
 
-### 5. Calendar integration (Phase 5) — `email/services/mml-classifier/mml_classifier/`
+### 5. Calendar integration (Phase 5) — `services/mml-classifier/mml_classifier/`
 
 A **unified** calendar layer that serves two flows on the same schema:
 
@@ -319,15 +319,15 @@ Both write `events` + `event_attendees` + one `event_changes` row per observatio
 
 **OAuth setup (one-time, the owner does this, not Claude):**
 1. Google Cloud Console → enable Calendar API → create OAuth2 Desktop credentials.
-2. Download `client_secret_*.json` and save as `email/gcal_client_secrets.json` (gitignored).
-3. `cd email/services/mml-classifier && .venv/bin/python -m mml_classifier.gcal_oauth_setup` — opens browser, completes consent, writes `email/gcal_token.json`, seeds the primary calendar in the warehouse.
+2. Download `client_secret_*.json` and save as `~/.config/google-oauth/client_secrets.json` (gitignored).
+3. `cd services/mml-classifier && .venv/bin/python -m mml_classifier.gcal_oauth_setup` — opens browser, completes consent, writes `~/.config/google-oauth/token.json`, seeds the primary calendar in the warehouse.
 
 After that, both flows work indefinitely (refresh token persists).
 
 **Ingest CLI shape:**
 
 ```bash
-cd email/services/mml-classifier
+cd services/mml-classifier
 
 # Dry-run — print plan + sample changes, no writes
 .venv/bin/python -m mml_classifier.calendar_intake
@@ -443,7 +443,7 @@ The end state of the routing loop: corrections train the LLM in-context → patt
 
 ## Prompt versions
 
-All LLM prompts live in `email/services/mml-classifier/mml_classifier/prompts/`. Routing is versioned via `CURRENT_VERSION.txt`; the others reference their version constant in `config.py`.
+All LLM prompts live in `services/mml-classifier/mml_classifier/prompts/`. Routing is versioned via `CURRENT_VERSION.txt`; the others reference their version constant in `config.py`.
 
 | Prompt | Version | Used by |
 |---|---|---|
@@ -457,7 +457,7 @@ All LLM prompts live in `email/services/mml-classifier/mml_classifier/prompts/`.
 | `route_suggest_v6.md` | **current** | **Manual deploy 2026-05-11** — Renamed `Routed/extra` → `Routed/Tech Noise`. |
 | `route_suggest_v7+` | **auto-deployed (future)** | Reserved for `prompt_refinement.py` auto-deploys. Manual deploys still use the same `CURRENT_VERSION.txt` + audit row pattern (`source='manual'` in `routing_prompt_versions`). |
 | `refinement_meta_v1.md` | constant | Meta-prompt for the self-refinement loop |
-| `cluster_classify_v1.md` | constant | `cluster_classifier.py` (Phase 4.5). Wrapper; concatenates with `email/email_classification_instructions_universal.md` at runtime. |
+| `cluster_classify_v1.md` | constant | `cluster_classifier.py` (Phase 4.5). Wrapper; concatenates with `templates/email_classification_instructions_universal.template.md` at runtime. |
 | `rating_suggest_v1.md` | initial | `rating_classifier.py` (Phase 6.0). Embeds the owner's 0–9 scale + cluster→default-rating table; few-shot appended at runtime. |
 | `rating_suggest_v2+.md` | **auto-deployed** | Generated by `rating_prompt_refinement.py` (Phase 6.0.g). Current version in `RATING_CURRENT_VERSION.txt`. Refinement adds sender anchors under `# Known sender ratings (auto-curated)`; never touches the scale or table. |
 | `rating_refinement_meta_v1.md` | constant | Meta-prompt for the rating self-refinement loop (Phase 6.0.g). |
@@ -555,7 +555,7 @@ The plugin gates the PersonBand round pill on `rating_source ∈ {MANUAL, CSV, P
 
 When PersonBand is suppressed, the badge falls back to the Phase 6.0.f `RatingSuggestionChip` if `suggested_rating >= 1`. The chip uses the same 1–9 color palette but a hex shape so it reads as "system guess" rather than the owner's own decision; cluster name moves to the chip's tooltip. `suggested_rating == 0` is treated as "no signal" and falls through to the cluster tag — mirroring how `effective_rating_decision()` maps cluster-default/zero to a non-person-level source.
 
-To change a cluster's default rating: edit `ratings.py` `CLUSTER_DEFAULT_RATING` dict and `email/RATING_SCALE.md` to match. No CLI exists to manage this; it's source-code-level.
+To change a cluster's default rating: edit `ratings.py` `CLUSTER_DEFAULT_RATING` dict and `docs/RATING_SCALE.md` to match. No CLI exists to manage this; it's source-code-level.
 
 ### Flow 5 — Phase 5 plugin-create-event (Ctrl+Option+E)
 
@@ -723,7 +723,7 @@ The pattern: store the "live" version in a tiny single-line file (`prompts/CURRE
 
 ### CSV vs warehouse for ratings
 
-`email/contacts_to_rate.csv` is the **user-facing** rating system. The owner hand-edits it (or auto-rules append to it). The CSV's `rating` column drives the badge color via `ratings.effective_rating_decision()` tier 1 (source = `CSV`).
+`templates/contacts_to_rate.template.csv` is the **user-facing** rating system. The owner hand-edits it (or auto-rules append to it). The CSV's `rating` column drives the badge color via `ratings.effective_rating_decision()` tier 1 (source = `CSV`).
 
 The warehouse `message_ratings` table is the **per-message override**. If the owner hits Ctrl+Option+5 on one specific email, that row in `message_ratings` overrides the CSV's per-sender rating for that one message (tier 0, source = `MANUAL`). The CSV is also updated atomically as a side-effect of bare tags (no note).
 
@@ -745,7 +745,7 @@ Side gotchas:
 - **DevTools requires `allow pasting`** before multi-line paste works.
 - **Empty-column UX trap:** if `resolver()` returns `null` for missing data, the cell renders as an empty div. Always render a placeholder ("·") so column existence is visible regardless of data availability.
 
-The whole chain is in `email/mailspring-spike/src/main.js`:
+The whole chain is in `plugin/src/main.js`:
 - `installOwnerRecipientColumn()` — patches `tlc.Wide`.
 - `injectColumnsWithRetries()` → `injectColumnsIntoMultiselectList()` — fiber walks + setState.
 - `nukeListTabularItemCaches()` — fiber walks every `.list-item` and nulls its cache.
@@ -793,7 +793,7 @@ Mailspring's `ThreadListStore._onDataChanged` auto-picks focus after a thread le
 → Start at `ratings.effective_rating_decision()`. Trace tiers. Then `contacts_to_rate.csv` for the per-person CSV. Then `RATING_SCALE.md` for cluster defaults.
 
 **"How does X get classified into a cluster?"**
-→ `cluster_classifier.classify_message()` (real-time, Phase 4.5). For PST-era data, see `pipeline_scripts/classification/extract_phase2.py`. The cluster definitions live in `email/email_classification_instructions_universal.md`.
+→ `cluster_classifier.classify_message()` (real-time, Phase 4.5). For PST-era data, see `pipeline_scripts/classification/extract_phase2.py`. The cluster definitions live in `templates/email_classification_instructions_universal.template.md`.
 
 **"How does X get an LLM routing suggestion?"**
 → `route_classifier.suggest_for_message()`. Cache-only via `/route-suggest`. Background worker auto-fires after intake. Current prompt name is in `prompts/CURRENT_VERSION.txt`.
@@ -861,8 +861,10 @@ Mailspring's `ThreadListStore._onDataChanged` auto-picks focus after a thread le
 
 ## File index — most useful files to grep first
 
+> Note: this tree reflects the historical single-folder layout this template descends from. The public repo now uses a structured layout (`docs/`, `tools/`, `plugin/`, `services/`, `templates/`, `migrations/`). Treat the entries below as a logical inventory of what exists; consult the repo root for actual paths.
+
 ```
-email/
+Local-sql-email-calendar/ (logical view)
 ├── ARCHITECTURE.md                                ← you are here
 ├── KEYSTROKES.md                                  ← printable one-sheet of all bound keystrokes (Phase 7.0)
 ├── PLAN_PHASE3_PLUGIN.md                          ← three-layer badge + keystroke spec
@@ -891,12 +893,12 @@ email/
 │   ├── warehouse_rating_suggestions_migration.sql ← Phase 6.0
 │   └── warehouse_rating_prompt_versions_migration.sql ← Phase 6.0.g (audit table)
 │
-├── _tools/                                        ← one-off scripts
+├── tools/                                         ← one-off scripts
 │   ├── parse_rwz.py                               ← Outlook .rwz parser (Phase 5 rule import)
 │   ├── dump_rated_contacts.py                     ← markdown audit doc
 │   └── dump_rated_contacts_xlsx.py                ← spreadsheet audit doc
 │
-├── mailspring-spike/                              ← the plugin
+├── plugin/                                        ← the Mailspring plugin (TypeScript)
 │   ├── package.json                               ← name=mml-productivity, v0.2.0
 │   ├── tsconfig.json                              ← tsc src/ → lib/
 │   ├── keymaps/                                   ← auto-loaded by Mailspring
@@ -1027,23 +1029,23 @@ tail -n 50 /tmp/mml-sidecar.log | grep -E 'routing-worker|cluster-worker|rating-
 ls -laL ~/Library/Application\ Support/Mailspring/packages/mml-engagement-spike/lib/
 
 # Warehouse fresh?
-sqlite3 "~/Documents/Documents - MML local machine/_GPT Meta/MML Productivity/warehouse.sqlite" \
+sqlite3 "warehouse.sqlite" \
   "SELECT COUNT(*) AS messages, MAX(received_date) AS latest FROM messages;"
 
 # Current routing prompt version?
-cat "~/Documents/Documents - MML local machine/_GPT Meta/MML Productivity/email/services/mml-classifier/mml_classifier/prompts/CURRENT_VERSION.txt"
+cat "services/mml-classifier/mml_classifier/prompts/CURRENT_VERSION.txt"
 
 # Current rating prompt version? (Phase 6.0.g)
-cat "~/Documents/Documents - MML local machine/_GPT Meta/MML Productivity/email/services/mml-classifier/mml_classifier/prompts/RATING_CURRENT_VERSION.txt"
+cat "services/mml-classifier/mml_classifier/prompts/RATING_CURRENT_VERSION.txt"
 
 # Rating-prompt audit trail (Phase 6.0.g)
-sqlite3 "~/Documents/Documents - MML local machine/_GPT Meta/MML Productivity/warehouse.sqlite" \
+sqlite3 "warehouse.sqlite" \
   "SELECT version, parent_version, refinement_model, correction_count_at_trigger,
           created_at, deployed_at IS NOT NULL AS deployed
    FROM rating_prompt_versions ORDER BY id DESC LIMIT 10;"
 
 # Per-classifier coverage?
-sqlite3 "~/Documents/Documents - MML local machine/_GPT Meta/MML Productivity/warehouse.sqlite" "
+sqlite3 "warehouse.sqlite" "
   SELECT 'routing'  AS k, classifier_version, COUNT(DISTINCT message_id)
   FROM routing_suggestions GROUP BY classifier_version
   UNION ALL
@@ -1062,7 +1064,7 @@ If sidecar is down (launchd path): `launchctl kickstart -k gui/$(id -u)/com.mml.
 
 ```bash
 kill $(lsof -nP -tiTCP:8765 -sTCP:LISTEN)
-cd "~/Documents/Documents - MML local machine/_GPT Meta/MML Productivity/email/services/mml-classifier"
+cd "services/mml-classifier"
 nohup .venv/bin/python -m mml_classifier.server > /tmp/mml-sidecar.log 2>&1 &
 disown
 ```

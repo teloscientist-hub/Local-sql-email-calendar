@@ -13,7 +13,7 @@ CLI:
     python -m mml_classifier.mailspring_intake --limit 50  # cap for safe testing
     python -m mml_classifier.mailspring_intake --since 2026-05-08T00:00:00
 
-Plan: email/PLAN_PHASE4_INTAKE.md
+Plan: PLAN_PHASE4_INTAKE.md
 """
 
 from __future__ import annotations

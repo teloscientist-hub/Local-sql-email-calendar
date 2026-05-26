@@ -18,7 +18,7 @@ Match strategy per row:
   3. `sys_matched_via` records which address actually matched, or '' if none.
 
 Run:
-    cd email/services/mml-classifier
+    cd services/mml-classifier
     .venv/bin/python -m mml_classifier.enrich_contacts_csv
 
 Note: ratings.manual_ratings() is LRU-cached. We feed the *new* CSV's rating

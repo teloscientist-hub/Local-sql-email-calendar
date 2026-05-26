@@ -11,7 +11,7 @@ from pathlib import Path
 
 # ---- Paths ------------------------------------------------------------------
 
-# Project root: .../MML Productivity/email/
+# Project root: .../MML Productivity/
 EMAIL_ROOT = Path(__file__).resolve().parents[3]
 
 WAREHOUSE_DB = Path(
@@ -169,7 +169,7 @@ ROUTING_CORRECTIONS_FEW_SHOT_LIMIT = int(
 
 # ---- Rating classifier (Phase 6.0 — 0-9 rating suggester) ------------------
 
-# Source-of-truth for the 0-9 scale lives at `email/RATING_SCALE.md`. The
+# Source-of-truth for the 0-9 scale lives at `docs/RATING_SCALE.md`. The
 # prompt embeds the owner's scale verbatim (it's short) plus a cluster-default
 # table — both shipped inside prompts/rating_suggest_v1.md.
 #
@@ -230,7 +230,7 @@ RATING_REFINEMENT_TIMEOUT_SECONDS = int(os.environ.get(
 # ---- Cluster classifier (Phase 4.5 — real-time) -----------------------------
 
 # Single source of truth for the 38-cluster taxonomy lives at
-# `email/email_classification_instructions_universal.md`. The local wrapper
+# `templates/email_classification_instructions_universal.template.md`. The local wrapper
 # `prompts/cluster_classify_v1.md` references it; runtime concatenates the
 # two for the system prompt.
 CLUSTER_PROMPT_VERSION = "cluster_classify_v1"

@@ -111,7 +111,7 @@ const SENDER_DESC_SQL = "(\
 // Sent-to sort: which of the owner's email aliases received this thread's
 // most-recent message. Sort key = the matching `recipients.addr` value.
 //
-// Schema notes (verified against email/warehouse_schema.sql 2026-05-12):
+// Schema notes (verified against warehouse_schema.sql 2026-05-12):
 //   - recipients.message_id is INTEGER FK → messages.id (rowid), NOT
 //     messages.message_id (RFC string). Two-level bridge required.
 //   - No `to_position` column exists; use `recipients.id ASC` as insertion-
@@ -147,7 +147,7 @@ const SENT_TO_DESC_SQL = SENT_TO_INNER + " DESC, `Thread`.`lastMessageReceivedTi
 // warehouse.message_ratings, COALESCE with sentinel so unrated threads sink
 // to the bottom regardless of direction.
 //
-// Schema notes (verified against email/warehouse_schema.sql 2026-05-12):
+// Schema notes (verified against warehouse_schema.sql 2026-05-12):
 //   - message_ratings.message_id is INTEGER FK → messages.id (rowid).
 //     Same two-level bridge as recipients (NOT the RFC string column).
 //   - rating is INTEGER 0–9, so -1 / 999 are safe out-of-range sentinels.

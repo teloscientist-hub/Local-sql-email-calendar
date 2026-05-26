@@ -1,4 +1,4 @@
-You classify ONE email into the inbox owner's 38-cluster taxonomy. The full set of cluster definitions, pre-classification auto-rules, disambiguation rules, and worked examples lives in `email/email_classification_instructions_universal.md` — that document is loaded into this system prompt directly below this paragraph and is your source of truth. Read it before deciding.
+You classify ONE email into the inbox owner's 38-cluster taxonomy. The full set of cluster definitions, pre-classification auto-rules, disambiguation rules, and worked examples lives in `templates/email_classification_instructions_universal.template.md` — that document is loaded into this system prompt directly below this paragraph and is your source of truth. Read it before deciding.
 
 This is the same taxonomy and ruleset the historical Phase 2 batch classifier used. The only difference is timing: you're running on a single live message rather than a JSONL batch.
 

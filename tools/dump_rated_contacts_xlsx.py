@@ -1,4 +1,4 @@
-"""Generate email/RATED_CONTACTS_AUDIT.xlsx — sortable/filterable rated-contact audit.
+"""Generate RATED_CONTACTS_AUDIT.xlsx — sortable/filterable rated-contact audit.
 
 One sheet, one row per rated contact, sorted by rating desc then score desc.
 Header row frozen, autofilter on, column widths sized for content. The
@@ -10,7 +10,7 @@ this typically reads "auto-rated 1 on 2026-05-07: cluster #29 Newsletters …"
 which is exactly what you want to scan.
 
 Usage:
-    python email/_tools/dump_rated_contacts_xlsx.py
+    python tools/dump_rated_contacts_xlsx.py
 """
 
 from __future__ import annotations

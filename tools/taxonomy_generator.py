@@ -20,7 +20,7 @@ CLI:
     # be sent to the model:
     python -m tools.taxonomy_generator --sample 500 --dry-run
 
-After review, save the draft as `email/email_classification_instructions_universal.md`
+After review, save the draft as `templates/email_classification_instructions_universal.template.md`
 (the location your `cluster_classifier.py` reads from) and run the cluster
 backfill: `python -m mml_classifier.cluster_classifier --backfill --limit 200`.
 
@@ -249,7 +249,7 @@ def main() -> int:
         f"model={args.model}  cluster_count={cluster_count}\n"
         f"\n"
         f"     Review this draft, edit as needed, then save (or rename) to\n"
-        f"       email/email_classification_instructions_universal.md\n"
+        f"       templates/email_classification_instructions_universal.template.md\n"
         f"     for the cluster_classifier to pick it up. -->\n\n"
     )
     output_path.write_text(header + taxonomy_md, encoding="utf-8")
@@ -264,7 +264,7 @@ def main() -> int:
     print()
     print("Next steps:")
     print(f"  1. Review and edit {output_path}")
-    print(f"  2. Save as email/email_classification_instructions_universal.md")
+    print(f"  2. Save as templates/email_classification_instructions_universal.template.md")
     print(f"  3. python -m mml_classifier.cluster_classifier --backfill --limit 50")
     return 0
 

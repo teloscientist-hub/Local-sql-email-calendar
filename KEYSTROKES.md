@@ -47,7 +47,7 @@ _The `Cmd+Option+<digit>` alternates exist because **Cmd+Shift+3** and **Cmd+Shi
 |---|---|
 | **Ctrl+Option+0**…**9** | Tag the focused message with a manual 0–9 rating. Writes one row to `message_ratings` AND updates `contacts_to_rate.csv` for the sender (bare-tag upsert). Instant — no UI. Latest wins. |
 
-_See `email/RATING_SCALE.md` for what each number means._
+_See `docs/RATING_SCALE.md` for what each number means._
 
 ---
 
@@ -109,5 +109,5 @@ curl -sS http://127.0.0.1:8765/healthz | python3 -m json.tool
 # Open with Cmd+Option+I after launch.
 
 # Current routing-prompt version
-cat "email/services/mml-classifier/mml_classifier/prompts/CURRENT_VERSION.txt"
+cat "services/mml-classifier/mml_classifier/prompts/CURRENT_VERSION.txt"
 ```
