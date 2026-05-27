@@ -57,14 +57,22 @@ If you want the system to know your real correspondents from day one, run the PS
 
 ```sh
 # Export from your archive provider:
-#   - Outlook: export your archive as .pst (use the pipeline/parse_pst.py path)
+#   - Outlook: export your archive as .pst
 #   - Gmail/IMAP: Google Takeout produces .mbox; or use the IMAP scripts
 # Place the export at <repo-root>/raw/
 
-# Run the ingest scripts in order (see pipeline/README.md for the full list)
-python -m pipeline.ingest_pst        # or pipeline.ingest_mbox
-python -m pipeline.build_entities    # de-dupe senders to contact_entities
-python -m pipeline.rebuild_contacts_csv  # regenerate contacts_to_rate.csv
+# Run the PST/mbox/IMAP ingest scripts in canonical order. Full runbook:
+#   pipeline/README.md              (PST 8-step canonical order)
+#   pipeline/ingest_mbox.py --help  (mbox / Google Takeout)
+#   pipeline/ingest_imap.py --help  (IMAP fetch → local mbox → ingest_mbox)
+#
+# Quick reference — PST path:
+.venv/bin/python pipeline/01_ingest_pypff_walk.py /path/to/source.pst warehouse.sqlite
+# (or pipeline/pst_to_sqlite.py for the readpst/libpst alternative path)
+.venv/bin/python pipeline/build_entities.py warehouse.sqlite contact_lookup.json
+.venv/bin/python pipeline/rebuild_contacts_csv.py \
+    warehouse.sqlite contacts_to_rate.csv contacts_to_rate.csv.new
+mv contacts_to_rate.csv.new contacts_to_rate.csv
 
 # Verify
 sqlite3 warehouse.sqlite "SELECT COUNT(*) FROM messages;"
