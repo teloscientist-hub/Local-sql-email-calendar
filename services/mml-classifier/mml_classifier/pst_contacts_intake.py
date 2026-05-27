@@ -305,7 +305,7 @@ def _create_entity(con, c: PstContact):
     now = _now()
     cur = con.execute(
         "INSERT INTO contact_entities "
-        "(canonical_name, canonical_email, is_mark, is_list_addr, "
+        "(canonical_name, canonical_email, is_me, is_list_addr, "
         " created_at, updated_at, ingester_version, tombstone) "
         "VALUES (?, ?, 0, 0, ?, ?, ?, 0)",
         (c.best_name, c.emails[0] if c.emails else None, now, now,
