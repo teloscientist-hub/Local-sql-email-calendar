@@ -83,6 +83,49 @@ Time: 1–4 hours for ~100k messages. The warehouse can grow to several GB; `.gi
 
 ---
 
+## Phase 2.5 — Bootstrap engagement
+
+Before the classifier can rank your contacts, the `engagement` table must have
+send-count data. Run this once, after Phase 2 ingest and after you have
+reviewed `me_addresses` (Phase 1):
+
+```sh
+# Verify your me_addresses are clean (no rows tagged CANDIDATE)
+sqlite3 warehouse.sqlite \
+  "SELECT email, notes FROM me_addresses WHERE notes LIKE '%CANDIDATE%';"
+# If any rows still carry the CANDIDATE note, clear them:
+# sqlite3 warehouse.sqlite "UPDATE me_addresses SET notes = NULL WHERE notes LIKE '%CANDIDATE%';"
+
+# Bootstrap engagement — SQL from migrations/HISTORY.md "Phase 0.5"
+sqlite3 warehouse.sqlite <<'SQL'
+INSERT INTO engagement (contact_entity_id, send_count, last_sent_at, computed_at, source)
+SELECT
+    cem.contact_entity_id,
+    COUNT(*)                   AS send_count,
+    MAX(m.sent_date)           AS last_sent_at,
+    datetime('now')            AS computed_at,
+    'bootstrap'                AS source
+FROM messages m
+JOIN recipients r ON r.message_id = m.id
+JOIN contact_email_map cem ON cem.email = r.addr AND cem.tombstone = 0
+WHERE LOWER(m.sender_addr) IN (SELECT email FROM me_addresses)
+  AND r.kind IN ('to', 'cc')
+GROUP BY cem.contact_entity_id
+ON CONFLICT(contact_entity_id) DO UPDATE SET
+    send_count   = send_count + excluded.send_count,
+    last_sent_at = MAX(COALESCE(last_sent_at,''), COALESCE(excluded.last_sent_at,'')),
+    computed_at  = excluded.computed_at;
+SQL
+
+# Verify
+sqlite3 warehouse.sqlite "SELECT COUNT(*) FROM engagement WHERE send_count > 0;"
+```
+
+See `migrations/HISTORY.md` "Phase 0.5 — engagement bootstrap" for the full
+rationale and the defensive-abort pattern.
+
+---
+
 ## Phase 3 — Taxonomy generator (build YOUR clusters)
 
 Rather than ship a generic taxonomy that fits nobody, this template gives you a tool that proposes a per-deployment taxonomy from your own mail. Read [`docs/CLASSIFICATION_TAXONOMY.md`](docs/CLASSIFICATION_TAXONOMY.md) for the workflow.
