@@ -31,6 +31,9 @@ Use whichever fits your workflow. The template ships with empty sets so nothing 
 | 6 | `resolve_nameonly_from_body.py` | Last-resort: scans the quoted body of each message for `From:` / `To:` lines containing the recipient's name and an email. |
 | 7 | `build_entities.py` | Builds the person/email mapping (`contact_entities` + `contact_email_map`) from sender history + lookup JSON. Conservative — only links emails to a person when the link is specific. |
 | 8 | `rebuild_contacts_csv.py` | Aggregates send/receive counts across all of a person's addresses and writes `contacts_to_rate.csv` (the user-facing rating list, sorted by an interaction score). |
+| 8.5 | `pst_contacts_intake.py` | Imports rich PST contact metadata (organization, title, web page, file-as, phones, addresses, group memberships) from a contacts-only PST into `pst_contact_meta` and related tables. Idempotent via sha1 item-key. Run from `services/mml-classifier/mml_classifier/`. |
+| — | `ingest_mbox.py` | Ingests messages from an mbox file (or Google Takeout `.mbox`) into the warehouse. Idempotent by Message-ID. Dry-run by default; pass `--commit`. |
+| — | `ingest_imap.py` | Thin IMAP→local-mbox fetcher. Connects to an IMAP server, dumps a folder to a local `.mbox`, then you run `ingest_mbox.py` on the result. Does not write to the warehouse directly. |
 
 ## Typical run order
 
@@ -67,6 +70,14 @@ Assuming a single PST source:
 .venv/bin/python pipeline/rebuild_contacts_csv.py \
     warehouse.sqlite contacts_to_rate.csv contacts_to_rate.csv.new
 mv contacts_to_rate.csv.new contacts_to_rate.csv
+
+# 8.5 Import rich PST contact metadata (phones / addresses / org / title)
+#     and folder→group mappings. Idempotent (sha1 item-key); dry-run by default.
+.venv/bin/python -m mml_classifier.pst_contacts_intake \
+    --pst /path/to/contacts.pst --db warehouse.sqlite
+# Review the printed calibration sample + planned counts, then:
+.venv/bin/python -m mml_classifier.pst_contacts_intake \
+    --pst /path/to/contacts.pst --db warehouse.sqlite --commit
 ```
 
 ## Multiple sources

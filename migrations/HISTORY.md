@@ -145,6 +145,24 @@ The 3-layer badge, TLDR overlay, and disposition keystrokes all use the existing
 
 ---
 
+## Phase 7 — pst_contact_meta
+
+**What:** Rich PST-contact metadata (organization, title, web page, file-as,
+source folder) plus per-PST provenance, alongside phones / addresses / group
+memberships flowing into the existing contact_phones / _addresses / _groups
+tables.
+
+**Table created:** `pst_contact_meta` (see `13_pst_contacts.sql`).
+
+**Why pst_item_key:** name-only PST contacts (no email) without this key
+produced fresh duplicate entities on every re-run — the importer's own
+created entities polluted the canonical_name index. A deterministic
+sha1 fingerprint of (file_as | display | given | surname | sorted emails |
+sorted normalized phones) makes re-runs claim the same entity. The unique
+`(source_pst, pst_item_key)` is the idempotency primitive.
+
+---
+
 ## Phase 4.5+ (open)
 
 Pending changes captured in [`docs/FUTURE_IMPROVEMENTS.md`](../docs/FUTURE_IMPROVEMENTS.md). Likely candidates that would touch schema:
